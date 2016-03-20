@@ -11,5 +11,6 @@ utils.showImage('full image', image)
 #utils.showImage('resize image', utils.scaleImage(image, (500, 500)))
 
 #test sliding window
-for window in utils.slidingWindow(image, 4, (48,48)):
-    utils.showImage('window', window)
+#for window in utils.slidingWindow(image, 100, (100,100)):
+#    utils.showImage('window', window)
+
