@@ -6,8 +6,10 @@ import cv2
 IMAGE_SIZE = 64
 
 # test image load / show
-#image = utils.getImage('../images/Land.jpg')
+image = utils.getImage('../images/Land.jpg')
 #utils.showImage('full image', image)
+#print image
+print utils.getSubImage(image, 100, 100, (6,6))
 
 #test sub image
 #utils.showImage('sub image', utils.getSubImage(image, 500, 500, (100, 200)))
@@ -36,7 +38,6 @@ for i in range(data.num_examples):
     
     
     if label[1] == 1:
-        print coords
         cv2.circle(src,(x,y), r/2, (0,0,255), 0)
         
 utils.showImage('craters', utils.scaleImage(src, (1000,1000)))

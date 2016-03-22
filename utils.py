@@ -9,7 +9,8 @@ def getImage(path):
     Returns:
         image at path
     """
-    return numpy.array(cv2.imread(path, 0))
+    img = numpy.array(cv2.imread(path, 0))
+    return cv2.normalize(img.astype('float'), None, 0.0, 1.0, cv2.NORM_MINMAX) 
 
 
 

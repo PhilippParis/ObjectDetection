@@ -1,4 +1,4 @@
-import network as nn
+import network_simple as nn
 import tensorflow as tf
 import input_data
 
@@ -7,9 +7,9 @@ FLAGS = flags.FLAGS
 
 flags.DEFINE_integer('image_size', 28, 'width and height of the input images')
 flags.DEFINE_integer('batch_size', 50, 'training batch size')
-flags.DEFINE_integer('max_steps', 100, 'number of steps to run trainer')
+flags.DEFINE_integer('max_steps', 2500, 'number of steps to run trainer')
 
-def main(_):
+def import_data():
     # Import data
     data = input_data.Data(FLAGS.image_size, FLAGS.image_size)
     data.add('../space_crater_dataset/data/1_24.csv',
@@ -24,21 +24,32 @@ def main(_):
              '../space_crater_dataset/images/tile3_24.pgm')
     data.add('../space_crater_dataset/data/3_25.csv',
              '../space_crater_dataset/images/tile3_25.pgm')
-    
     data.finalize()
     
+    print '(datasets, positive, negative)'
+    print data.info()
+    print ''
+    
+    return data
+
+def main(_):
+    
+    # import data
+    data = import_data()
     
     # start session
     sess = tf.InteractiveSession()
-
 
     # create model
     network_input   = tf.placeholder("float", shape=[None, FLAGS.image_size * FLAGS.image_size])
     desired_output  = tf.placeholder("float", shape=[None, 2])
     keep_prob       = tf.placeholder("float")
-    #network_output  = nn.create_network(network_input, keep_prob, FLAGS.image_size)
-    network_output  = nn.create_network(network_input)
-
+    
+    # use for 'network_simple' model
+    network_output  = nn.create_network(network_input, keep_prob, FLAGS.image_size)
+    
+    # use for 'network' model
+    #network_output  = nn.create_network(network_input)
 
     # training
     with tf.name_scope('xent'):
@@ -59,6 +70,11 @@ def main(_):
     writer = tf.train.SummaryWriter("/tmp/crater_logs", sess.graph_def)
     tf.initialize_all_variables().run()
 
+    # print overall accuracy
+    feed = {network_input:data.images, desired_output: data.labels, keep_prob:0.5}
+    acc = sess.run(accuracy, feed_dict = feed)
+    print 'Overall Accuracy: %s' % (acc)
+    
     # train the model
     for i in range(FLAGS.max_steps):
         batch_xs, batch_ys = data.next_batch(FLAGS.batch_size)
@@ -73,12 +89,11 @@ def main(_):
             # train batch
             feed = {network_input:batch_xs, desired_output: batch_ys, keep_prob:0.5}
             sess.run(train_step, feed_dict = feed)
-
-    """
+            
+    # print overall accuracy
     feed = {network_input:data.images, desired_output: data.labels, keep_prob:0.5}
     acc = sess.run(accuracy, feed_dict = feed)
     print 'Overall Accuracy: %s' % (acc)
-    """
 
 if __name__ == '__main__':
     tf.app.run()

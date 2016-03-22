@@ -107,10 +107,11 @@ def create_network(network_input):
     # local
     with tf.variable_scope('local3') as scope:
         # Move everything into depth so we can perform a single matrix multiply.
+        batch_size = tf.shape(pool2)[0]
         dim = 1
         for d in pool2.get_shape()[1:].as_list():
             dim *= d
-        reshape = tf.reshape(pool2, [FLAGS.batch_size, dim])
+        reshape = tf.reshape(pool2, tf.pack([batch_size, dim]))
         
         weights = weight_var_with_decay(shape=[dim, 384], std=0.04, wd=0.004)
         biases = bias_var([384], 0.1)

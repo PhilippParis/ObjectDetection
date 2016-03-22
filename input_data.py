@@ -89,5 +89,15 @@ class Data:
         self.labels = self.labels[perm]
         
         return (self.images[0:batch_size], self.labels[0:batch_size])
+    
+    def info(self):
+        """
+        Returns:
+            (num_examples, number of positive datasets, number of negative datasets)
+        """
+        positive = numpy.sum(numpy.equal([0,1], self.labels).astype(int))
+        negative = numpy.sum(numpy.equal([1,0], self.labels).astype(int))
+        
+        return self.num_examples, positive / 2, negative / 2
                 
     
