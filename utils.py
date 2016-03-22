@@ -1,5 +1,6 @@
 import os, sys
 import cv2
+import numpy
 
 def getImage(path):
     """
@@ -8,7 +9,7 @@ def getImage(path):
     Returns:
         image at path
     """
-    return cv2.imread(path)
+    return numpy.array(cv2.imread(path, 0))
 
 
 
@@ -36,9 +37,9 @@ def getSubImage(image, x, y, size):
     Returns:
         image
     """
-    width = size[0] / 2
-    height = size[1] / 2
-    return image[y - height : y + height, x - width : x + width]
+    width = (size[0] + 1) / 2
+    height = (size[1] + 1) / 2
+    return numpy.array(image[y - height : y + height, x - width : x + width])
 
 
 
@@ -52,7 +53,7 @@ def scaleImage(image, size):
     Returns:
         resized image
     """
-    return cv2.resize(image, size)
+    return cv2.resize(image, size, interpolation = cv2.INTER_CUBIC)
 
 
 
