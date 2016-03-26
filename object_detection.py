@@ -12,13 +12,13 @@ FLAGS = flags.FLAGS
 
 flags.DEFINE_integer('image_size', 28, 'width and height of the input images')
 flags.DEFINE_integer('batch_size', 50, 'training batch size')
-flags.DEFINE_integer('max_steps', 1000, 'number of steps to run trainer')
+flags.DEFINE_integer('max_steps', 2500, 'number of steps to run trainer')
+flags.DEFINE_integer('step_size', 7, 'sliding window step size')
 
 flags.DEFINE_string('test_img', '../space_crater_dataset/images/tile3_25.pgm', 'path to test image')
 flags.DEFINE_string('test_data', '../space_crater_dataset/data/3_25.csv', 'path to ground truth csv file')
 flags.DEFINE_string('output_file','output/3_25_sliding_window_out', 'path to output file')
 
-flags.DEFINE_integer('step_size', 7, 'sliding window step size')
 
 # start session
 sess = tf.InteractiveSession()
@@ -179,17 +179,16 @@ def main(_):
     
     
     # ----------- output ---------------------#
-    
-    src = cv2.cvtColor(src,cv2.COLOR_GRAY2RGB)
+    src = cv2.cvtColor(src, cv2.COLOR_GRAY2RGB)
     # mark ground truth craters
-    ground_truth_data = open(data_path, 'rb')
+    ground_truth_data = open(FLAGS.test_data, 'rb')
     for row in csv.reader(ground_truth_data, delimiter=','):
         if int(row[3]) == 1:
-            cv2.circle(src,int(row[0]), int(row[1]), int(row[2]), (0,255,0), 0)
+            cv2.circle(src, (int(row[0]), int(row[1])), int(row[2]), (0,255,0), 0)
     
     # mark found objects
     for (x,y,r) in objects:
-                cv2.circle(src,(x, y), r, (255,0,0), 0)
+                cv2.circle(src, (x, y), r, (255,0,0), 0)
     
     utils.showImage('title', detected)
     cv2.imwrite(FLAGS.output_file, src)

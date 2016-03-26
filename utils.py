@@ -9,8 +9,8 @@ def getImage(path):
     Returns:
         image at path
     """
-    img = numpy.array(cv2.imread(path, 0))
-    return cv2.normalize(img.astype('float'), None, 0.0, 1.0, cv2.NORM_MINMAX) 
+    img = cv2.imread(path, cv2.CV_LOAD_IMAGE_GRAYSCALE)
+    return cv2.normalize(img, None, 0.0, 1.0, cv2.NORM_MINMAX, cv2.CV_32F) 
 
 
 
@@ -40,7 +40,7 @@ def getSubImage(image, x, y, size):
     """
     width = (size[0] + 1) / 2
     height = (size[1] + 1) / 2
-    return numpy.array(image[y - height : y + height, x - width : x + width])
+    return image[y - height : y + height, x - width : x + width]
 
 
 
