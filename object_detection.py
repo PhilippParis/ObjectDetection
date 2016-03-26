@@ -12,12 +12,12 @@ FLAGS = flags.FLAGS
 
 flags.DEFINE_integer('image_size', 28, 'width and height of the input images')
 flags.DEFINE_integer('batch_size', 50, 'training batch size')
-flags.DEFINE_integer('max_steps', 2500, 'number of steps to run trainer')
+flags.DEFINE_integer('max_steps', 7000, 'number of steps to run trainer')
 flags.DEFINE_integer('step_size', 7, 'sliding window step size')
 
 flags.DEFINE_string('test_img', '../space_crater_dataset/images/tile3_25.pgm', 'path to test image')
 flags.DEFINE_string('test_data', '../space_crater_dataset/data/3_25.csv', 'path to ground truth csv file')
-flags.DEFINE_string('output_file','output/3_25_sliding_window_out', 'path to output file')
+flags.DEFINE_string('output_file','output/3_25_sliding_window_out.png', 'path to output file')
 
 
 # start session
@@ -179,7 +179,8 @@ def main(_):
     
     
     # ----------- output ---------------------#
-    src = cv2.cvtColor(src, cv2.COLOR_GRAY2RGB)
+    src = cv2.cvtColor(src, cv2.COLOR_GRAY2RGB) * 255
+    
     # mark ground truth craters
     ground_truth_data = open(FLAGS.test_data, 'rb')
     for row in csv.reader(ground_truth_data, delimiter=','):
@@ -190,7 +191,6 @@ def main(_):
     for (x,y,r) in objects:
                 cv2.circle(src, (x, y), r, (255,0,0), 0)
     
-    utils.showImage('title', detected)
     cv2.imwrite(FLAGS.output_file, src)
 
 if __name__ == '__main__':
