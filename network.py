@@ -138,7 +138,24 @@ def create_network(network_input):
     return softmax_linear
         
 
+# ----------------- TRAINING ----------------- #
+
+def train(network_output, desired_output):
+    """
+    with tf.name_scope('xent'):
+        cross_entropy = -tf.reduce_sum(desired_output * tf.log(network_output))
+        _ = tf.scalar_summary('cross entropy', cross_entropy)
         
+    return tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)  
+    """
+    
+    global_step = tf.Variable(0, trainable=False)
+    return tf.train.exponential_decay(0.1,
+                                  global_step,
+                                  350 * 50,
+                                  0.1,
+                                  staircase=True)
+    
     
     
         

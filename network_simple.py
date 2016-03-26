@@ -71,3 +71,13 @@ def create_network(network_input, keep_prob, image_size):
         output = tf.nn.softmax(tf.matmul(output_layer_3_drop, weights) + biases)
         #_ = tf.histogram_summary("network-output", output)
         return output
+
+
+# ----------------- TRAINING ----------------- #
+
+def train(network_output, desired_output):
+    with tf.name_scope('xent'):
+        cross_entropy = -tf.reduce_sum(desired_output * tf.log(network_output))
+        _ = tf.scalar_summary('cross entropy', cross_entropy)
+        
+    return tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)

@@ -70,7 +70,24 @@ def slidingWindow(image, stepSize, windowSize):
     Returns:
         subimages
     """
+    count = 0
+    images = []
+    coords = []
+    
     for y in range(0, image.shape[0], stepSize):
         for x in range(0, image.shape[1], stepSize):
-            yield getSubImage(image, x + windowSize[0] / 2, y + windowSize[1] / 2, windowSize)
+            img = getSubImage(image, x + windowSize[0] / 2, y + windowSize[1] / 2, windowSize)
+            if img.shape != windowSize:
+                continue
+            images.append(img)
+            coords.append([x + windowSize[0] / 2, y + windowSize[1] / 2])
+            count = count + 1
+            
+            if count > 500:
+                yield numpy.array(images).reshape([count, windowSize[0] * windowSize[1]]), numpy.array(coords).reshape([count, 2])
+                images = []
+                coords = []
+                count = 0
+                
+    yield numpy.array(images).reshape([count, windowSize[0] * windowSize[1]]), numpy.array(coords).reshape([count, 2])
 
