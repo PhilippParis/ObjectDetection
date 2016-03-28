@@ -12,17 +12,20 @@ FLAGS = flags.FLAGS
 
 flags.DEFINE_integer('image_size', 28, 'width and height of the input images')
 flags.DEFINE_integer('batch_size', 50, 'training batch size')
-flags.DEFINE_integer('max_steps', 7000, 'number of steps to run trainer')
+flags.DEFINE_integer('max_steps', 5000, 'number of steps to run trainer')
 
-flags.DEFINE_string('test_img', '../space_crater_dataset/images/tile3_25.pgm', 'path to test image')
+flags.DEFINE_string('test_img', '../images/Land.jpg', 'path to test image')
+
+flags.DEFINE_boolean('show_ground_truth', False, 'show ground truth data')
 flags.DEFINE_string('test_data', '../space_crater_dataset/data/3_25.csv', 'path to ground truth csv file')
-flags.DEFINE_string('output_file','output/3_25_out.png', 'path to output file')
 
 flags.DEFINE_boolean('sliding_window_detection', False, 'enable sliding_window_detection')
 flags.DEFINE_integer('step_size', 7, 'sliding window step size')
 
 flags.DEFINE_boolean('candidate_detection', True, 'enable candidate detection')
-flags.DEFINE_string('candidate_file','candidates/candidates_3_25.csv', 'path to candidate file')
+flags.DEFINE_string('candidate_file','candidates/candidates_land.csv', 'path to candidate file')
+
+flags.DEFINE_string('output_file','output/land_out.png', 'path to output file')
 
 # start session
 sess = tf.InteractiveSession()
@@ -180,7 +183,7 @@ def candidate_detection(model, x, keep_prob, src, candidates):
     y_border = 10
     
     # add padding to image
-    src = cv2.copyMakeBorder(src, x_border, y_border, 10, 10, cv2.BORDER_REPLICATE)
+    src = cv2.copyMakeBorder(src, x_border, y_border, x_border, y_border, cv2.BORDER_REPLICATE)
     
     images = []
     for c in candidates:
@@ -245,6 +248,7 @@ def main(_):
     print 'detection time: %d' % (time.time() - start)
     
     # ----------- output ---------------------#
+    
     src = cv2.cvtColor(src, cv2.COLOR_GRAY2RGB) * 255
     
     # mark crater candidates
@@ -253,9 +257,10 @@ def main(_):
             cv2.circle(src, (candidate[0], candidate[1]), candidate[2], (0,0,255), 0) # red
     
     # mark ground truth craters
-    ground_truth_data = csv_to_list(FLAGS.test_data, True)
-    for crater in ground_truth_data:
-        cv2.circle(src, (crater[0], crater[1]), crater[2], (0,255,0), 0) # green
+    if FLAGS.show_ground_truth:
+        ground_truth_data = csv_to_list(FLAGS.test_data, True)
+        for crater in ground_truth_data:
+            cv2.circle(src, (crater[0], crater[1]), crater[2], (0,255,0), 0) # green
     
     # mark found objects
     for (x,y,r) in objects:
