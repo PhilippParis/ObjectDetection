@@ -40,6 +40,7 @@ def getSubImage(image, x, y, size):
     """
     width = (size[0] + 1) / 2
     height = (size[1] + 1) / 2
+        
     return image[y - height : y + height, x - width : x + width]
 
 

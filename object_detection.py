@@ -13,12 +13,16 @@ FLAGS = flags.FLAGS
 flags.DEFINE_integer('image_size', 28, 'width and height of the input images')
 flags.DEFINE_integer('batch_size', 50, 'training batch size')
 flags.DEFINE_integer('max_steps', 7000, 'number of steps to run trainer')
-flags.DEFINE_integer('step_size', 7, 'sliding window step size')
 
 flags.DEFINE_string('test_img', '../space_crater_dataset/images/tile3_25.pgm', 'path to test image')
 flags.DEFINE_string('test_data', '../space_crater_dataset/data/3_25.csv', 'path to ground truth csv file')
-flags.DEFINE_string('output_file','output/3_25_sliding_window_out.png', 'path to output file')
+flags.DEFINE_string('output_file','output/3_25_out.png', 'path to output file')
 
+flags.DEFINE_boolean('sliding_window_detection', False, 'enable sliding_window_detection')
+flags.DEFINE_integer('step_size', 7, 'sliding window step size')
+
+flags.DEFINE_boolean('candidate_detection', True, 'enable candidate detection')
+flags.DEFINE_string('candidate_file','candidates/candidates_3_25.csv', 'path to candidate file')
 
 # start session
 sess = tf.InteractiveSession()
@@ -117,7 +121,6 @@ def train_model(model, data, x, y_, keep_prob):
     # print overall accuracy
     print 'Overall Accuracy: %s' % (overall_accuracy(data, x, y_, keep_prob, accuracy))
     
-    
 
 def sliding_window_detection(model, x, keep_prob, src):
     """
@@ -141,8 +144,63 @@ def sliding_window_detection(model, x, keep_prob, src):
         for i in range(0, len(y)):
             if y[i][0] < 0.25 and y[i][1] > 0.75:
                 objects.append((coords[i][0], coords[i][1], 2))
-                #cv2.circle(src,(coords[i][0], coords[i][1]), 2, (0,0,255), 0)
-    return objects        
+    return objects       
+
+
+def csv_to_list(csv_file_path, onlyTrue=False):
+    """
+    converts the csv file at 'csv_file_path' into a list of integer triples
+    Args:
+        csv_file_path: path to csv file (3 columns with integer values)
+        onlyTrue: returns only rows where the fourth column == 1
+    Returns:
+        list
+    """
+    candidates = []
+    csv_file = open(csv_file_path, 'rb')
+    for row in csv.reader(csv_file, delimiter=','):
+        if len(row) < 4 or (not onlyTrue or int(row[3]) == 1):
+            candidates.append((int(row[0]), int(row[1]), int(row[2])))
+    return candidates
+
+
+def candidate_detection(model, x, keep_prob, src, candidates):
+    """
+    object detection via external candidate file
+    Args:
+        model: model which is used for detection
+        x: input data placeholder
+        keep_prob: keep probability placeholder
+        src: source image
+        candidates: list of candidates [(x,y,radius)]
+    Returns
+        list of found craters [(x,y,radius)]
+    """
+    x_border = 10
+    y_border = 10
+    
+    # add padding to image
+    src = cv2.copyMakeBorder(src, x_border, y_border, 10, 10, cv2.BORDER_REPLICATE)
+    
+    images = []
+    for c in candidates:
+        x_pos = x_border + c[0]
+        y_pos = y_border + c[1]
+        diameter = int(c[2] * 2)
+        sub_image = utils.getSubImage(src, x_pos, y_pos, (diameter, diameter))
+        sub_image = utils.scaleImage(sub_image, (FLAGS.image_size, FLAGS.image_size))
+        images.append(sub_image)
+        
+    images = numpy.array(images).reshape(len(candidates), FLAGS.image_size * FLAGS.image_size)
+    feed = {x:images, keep_prob:1.0}
+    y = sess.run(model, feed_dict = feed)
+    
+    objects = []
+    for i in range(0, len(y)):
+        if y[i][0] < 0.25 and y[i][1] > 0.75:
+            objects.append(candidates[i])
+    
+    return objects
     
 def main(_):
     # import data
@@ -174,22 +232,34 @@ def main(_):
     
     src = utils.getImage(FLAGS.test_img)
     start = time.time()
-    objects = sliding_window_detection(model, x, keep_prob, src)
-    print 'detection time: %d' % (time.time() - start)
     
+    #sliding window detection
+    if FLAGS.sliding_window_detection:
+        objects = sliding_window_detection(model, x, keep_prob, src)
+    
+    # candidate detection
+    if FLAGS.candidate_detection:
+        candidates = csv_to_list(FLAGS.candidate_file)
+        objects = candidate_detection(model, x, keep_prob, src, candidates)
+    
+    print 'detection time: %d' % (time.time() - start)
     
     # ----------- output ---------------------#
     src = cv2.cvtColor(src, cv2.COLOR_GRAY2RGB) * 255
     
+    # mark crater candidates
+    if FLAGS.candidate_detection:
+        for candidate in candidates:
+            cv2.circle(src, (candidate[0], candidate[1]), candidate[2], (0,0,255), 0) # red
+    
     # mark ground truth craters
-    ground_truth_data = open(FLAGS.test_data, 'rb')
-    for row in csv.reader(ground_truth_data, delimiter=','):
-        if int(row[3]) == 1:
-            cv2.circle(src, (int(row[0]), int(row[1])), int(row[2]), (0,255,0), 0)
+    ground_truth_data = csv_to_list(FLAGS.test_data, True)
+    for crater in ground_truth_data:
+        cv2.circle(src, (crater[0], crater[1]), crater[2], (0,255,0), 0) # green
     
     # mark found objects
     for (x,y,r) in objects:
-                cv2.circle(src, (x, y), r, (255,0,0), 0)
+        cv2.circle(src, (x, y), r, (255,0,0), 0) #blue
     
     cv2.imwrite(FLAGS.output_file, src)
 

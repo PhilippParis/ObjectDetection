@@ -64,8 +64,15 @@ class Data:
         """
         
         # get subimage
-        sub_image = utils.getSubImage(src_image, x, y, (diameter, diameter))
-        # scale subimage to defined size
+        """
+        if diameter < self.size[0]:
+            sub_image = utils.getSubImage(src_image, x, y, self.size)
+        else:
+            sub_image = utils.getSubImage(src_image, x, y, (diameter, diameter))
+            # scale subimage to defined size
+            sub_image = utils.scaleImage(sub_image, self.size)
+        """
+        sub_image = utils.getSubImage(src_image, x, y, self.size)
         sub_image = utils.scaleImage(sub_image, self.size)
         
         # add dataset
