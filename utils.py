@@ -1,6 +1,7 @@
 import os, sys
 import cv2
 import numpy
+import csv
 
 def getImage(path):
     """
@@ -102,3 +103,18 @@ def slidingWindow(image, stepSize, windowSize, outputSize):
                 
     yield numpy.array(images).reshape([count, outputSize[0] * outputSize[1]]), numpy.array(coords).reshape([count, 2])
 
+def csv_to_list(csv_file_path, onlyTrue=False):
+    """
+    converts the csv file at 'csv_file_path' into a list of integer triples
+    Args:
+        csv_file_path: path to csv file (3 columns with integer values)
+        onlyTrue: returns only rows where the fourth column == 1
+    Returns:
+        list
+    """
+    candidates = []
+    csv_file = open(csv_file_path, 'rb')
+    for row in csv.reader(csv_file, delimiter=','):
+        if len(row) < 4 or (not onlyTrue or int(row[3]) == 1):
+            candidates.append((int(row[0]), int(row[1]), int(row[2])))
+    return candidates
