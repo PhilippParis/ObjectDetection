@@ -1,4 +1,5 @@
 import utils
+import cv2
 import csv
 import numpy
 import tensorflow as tf
@@ -42,13 +43,31 @@ class Data:
         """
         
         src = utils.getImage(image_path)
+        
         csvfile = open(data_path, 'rb')
         reader = csv.reader(csvfile, delimiter=',')
         
+        # get max diameter and add border to src image
+        x_border = 0
+        y_border = 0
+        
+        for row in reader:
+            diameter = int(row[2])
+            if diameter > x_border:
+                x_border = diameter
+            if diameter > y_border:
+                y_border = diameter
+        
+        x_border = x_border / 2
+        y_border = y_border / 2
+
+        src = cv2.copyMakeBorder(src, x_border, y_border, x_border, y_border, cv2.BORDER_REPLICATE)
+        
+        csvfile = open(data_path, 'rb')
+        reader = csv.reader(csvfile, delimiter=',')
         for row in reader:
             label = numpy.array([0,1]) if int(row[3]) == 1 else numpy.array([1,0])
-            self.add_dataset(src, int(row[0]), int(row[1]), int(row[2]), label)
-            self.num_examples = self.num_examples + 1
+            self.add_dataset(src, x_border + int(row[0]), y_border + int(row[1]), int(row[2]), label)
             
                 
     def add_dataset(self, src_image, x, y, diameter, label):
@@ -72,13 +91,18 @@ class Data:
             # scale subimage to defined size
             sub_image = utils.scaleImage(sub_image, self.size)
         """
-        sub_image = utils.getSubImage(src_image, x, y, self.size)
+        sub_image = utils.getSubImage(src_image, x, y, (diameter, diameter))
         sub_image = utils.scaleImage(sub_image, self.size)
         
-        # add dataset
-        self.images = numpy.append(self.images, sub_image)
-        self.labels = numpy.append(self.labels, label)
-        self.coords = numpy.append(self.coords, [x, y, diameter])
+        for i in xrange(4):
+            # add dataset
+            self.images = numpy.append(self.images, sub_image)
+            self.labels = numpy.append(self.labels, label)
+            self.coords = numpy.append(self.coords, [x, y, diameter])
+            self.num_examples = self.num_examples + 1
+            
+            # rotate image
+            sub_image = utils.rotateImage(sub_image, 90)
         
                 
     def next_batch(self, batch_size):

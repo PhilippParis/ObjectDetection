@@ -33,7 +33,7 @@ def create_network(network_input, keep_prob, image_size):
         weights = weight_var([5, 5, 1, 32])
         biases = bias_var([32])
         
-        #_ = tf.histogram_summary("weights1", weights)
+        _ = tf.histogram_summary("weights1", weights)
         conv = tf.nn.relu(conv2d(input_reshaped, weights) + biases)
         output_layer_1 = max_pool_2x2(conv)
         
@@ -43,7 +43,7 @@ def create_network(network_input, keep_prob, image_size):
         weights = weight_var([5, 5, 32, 64])
         biases = bias_var([64])
         
-        #_ = tf.histogram_summary("weights2", weights)
+        _ = tf.histogram_summary("weights2", weights)
         conv = tf.nn.relu(conv2d(output_layer_1, weights) + biases)
         output_layer_2 = max_pool_2x2(conv)
         
@@ -54,7 +54,7 @@ def create_network(network_input, keep_prob, image_size):
         weights = weight_var([size * size * 64, 1024])
         biases = bias_var([1024])
         
-        #_ = tf.histogram_summary("weights3", weights)
+        _ = tf.histogram_summary("weights3", weights)
         output_layer_2_flat = tf.reshape(output_layer_2, [-1, size * size * 64])
         output_layer_3 = tf.nn.relu(tf.matmul(output_layer_2_flat, weights) + biases)
         
@@ -67,9 +67,9 @@ def create_network(network_input, keep_prob, image_size):
         weights = weight_var([1024, 2])
         biases = bias_var([2])
         
-        #tf.histogram_summary("weights4", weights)
+        tf.histogram_summary("weights4", weights)
         output = tf.nn.softmax(tf.matmul(output_layer_3_drop, weights) + biases)
-        #_ = tf.histogram_summary("network-output", output)
+        _ = tf.histogram_summary("network-output", output)
         return output
 
 

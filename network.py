@@ -140,21 +140,78 @@ def create_network(network_input):
 
 # ----------------- TRAINING ----------------- #
 
-def train(network_output, desired_output):
-    """
-    with tf.name_scope('xent'):
-        cross_entropy = -tf.reduce_sum(desired_output * tf.log(network_output))
-        _ = tf.scalar_summary('cross entropy', cross_entropy)
-        
-    return tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)  
-    """
+# Constants describing the training process.
+MOVING_AVERAGE_DECAY = 0.9999     # The decay to use for the moving average.
+NUM_EPOCHS_PER_DECAY = 350.0      # Epochs after which learning rate decays.
+LEARNING_RATE_DECAY_FACTOR = 0.1  # Learning rate decay factor.
+INITIAL_LEARNING_RATE = 0.1       # Initial learning rate.
+
+def train(num_training_examples, global_step, total_loss):
+    num_batches_per_epoch = num_training_examples / FLAGS.batch_size
+    decay_steps = int(num_batches_per_epoch * NUM_EPOCHS_PER_DECAY)
     
-    global_step = tf.Variable(0, trainable=False)
-    return tf.train.exponential_decay(0.1,
-                                  global_step,
-                                  350 * 50,
-                                  0.1,
-                                  staircase=True)
+    lr = tf.train.exponential_decay(INITIAL_LEARNING_RATE,
+                                    global_step,
+                                    decay_steps,
+                                    LEARNING_RATE_DECAY_FACTOR,
+                                    staircase=True)
+    
+    tf.scalar_summary('learning_rate', lr)
+    
+    loss_averages_op = add_loss_summaries(total_loss)
+        
+    # compute gradients
+    with tf.control_dependencies([loss_averages_op]):
+        opt = tf.train.GradientDescentOptimizer(lr)
+        grads = opt.compute_gradients(total_loss)
+        
+    # apply gradients
+    apply_gradient_op = opt.apply_gradients(grads, global_step=global_step)
+    
+    # add histograms
+    for var in tf.trainable_variables():
+        tf.histogram_summary(var.op.name, var)
+        
+    for grad, var in grads:
+        if grad is not None:
+            tf.histogram_summary(var.op.name + '/gradients', grad)
+            
+    variable_averages = tf.train.ExponentialMovingAverage(MOVING_AVERAGE_DECAY,
+                                                          global_step)
+    variables_averages_op = variable_averages.apply(tf.trainable_variables())
+    
+    with tf.control_dependencies([apply_gradient_op, variables_averages_op]):
+        train_op = tf.no_op(name='train')
+    
+    return train_op
+
+
+# ----------------- LOSS ----------------- #
+
+def add_loss_summaries(total_loss):
+    
+    loss_averages = tf.train.ExponentialMovingAverage(0.9, name='avg')
+    losses = tf.get_collection('losses')
+    loss_averages_op = loss_averages.apply(losses + [total_loss])
+    
+    for l in losses + [total_loss]:
+        tf.scalar_summary(l.op.name + ' (raw)', l)
+        tf.scalar_summary(l.op.name, loss_averages.average(l))
+        
+    return loss_averages_op
+
+
+def loss(model, labels):
+    #labels = tf.cast(labels, tf.int64)
+    cross_entropy = tf.nn.softmax_cross_entropy_with_logits(model, labels,
+                    name='cross_entropy_per_example')
+    cross_entropy_mean = tf.reduce_mean(cross_entropy, name='cross_entropy')
+    tf.add_to_collection('losses', cross_entropy_mean)
+    
+    # cross cross entropy loss plus all of the weight decay terms (L2 loss)
+    return tf.add_n(tf.get_collection('losses'), name='total_loss')
+    
+    
     
     
     

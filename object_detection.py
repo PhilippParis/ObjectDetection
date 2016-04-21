@@ -1,31 +1,34 @@
-import network_simple as nn
-import tensorflow as tf
-import input_data
 import utils
+import input_data
 import numpy
 import cv2
 import time
+import tensorflow as tf
+import network_simple as nn
 import csv
+import os
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
 
 flags.DEFINE_integer('image_size', 28, 'width and height of the input images')
 flags.DEFINE_integer('batch_size', 50, 'training batch size')
-flags.DEFINE_integer('max_steps', 5000, 'number of steps to run trainer')
+flags.DEFINE_integer('max_steps', 300, 'number of steps to run trainer')
 
-flags.DEFINE_string('test_img', '../images/Land.jpg', 'path to test image')
+flags.DEFINE_string('test_img', '../images/Land.tif', 'path to test image')
 
-flags.DEFINE_boolean('show_ground_truth', False, 'show ground truth data')
-flags.DEFINE_string('test_data', '../space_crater_dataset/data/3_25.csv', 'path to ground truth csv file')
+flags.DEFINE_boolean('show_ground_truth', True, 'show ground truth data')
+flags.DEFINE_string('test_data', '../images/data/Land.csv', 'path to ground truth csv file')
 
-flags.DEFINE_boolean('sliding_window_detection', False, 'enable sliding_window_detection')
-flags.DEFINE_integer('step_size', 7, 'sliding window step size')
+flags.DEFINE_boolean('sliding_window_detection', True, 'enable sliding_window_detection')
+flags.DEFINE_integer('window_size', 50, 'sliding window size')
+flags.DEFINE_integer('step_size', 10, 'sliding window step size')
 
-flags.DEFINE_boolean('candidate_detection', True, 'enable candidate detection')
+flags.DEFINE_boolean('candidate_detection', False, 'enable candidate detection')
 flags.DEFINE_string('candidate_file','candidates/candidates_land.csv', 'path to candidate file')
 
-flags.DEFINE_string('output_file','output/land_out.png', 'path to output file')
+flags.DEFINE_string('output_file','output/Land_2100its_sw_50_10_rotate_with_mars2.png', 'path to output file')
+flags.DEFINE_string('checkpoint_path','checkpoints/simple_rotated_with_mars', 'path to checkpoint')
 
 # start session
 sess = tf.InteractiveSession()
@@ -36,9 +39,18 @@ def import_data():
     """
     # Import data
     data = input_data.Data(FLAGS.image_size, FLAGS.image_size)
-    #data.add('../images/Land.csv',
-    #         '../images/Land.jpg')
     
+    data.add('../images/data/Land.csv',
+             '../images/Land.tif')
+    """
+    data.add('../images/data/Stadt.csv',
+             '../images/Stadt.tif')
+    data.add('../images/data/Umland.csv',
+             '../images/Umland.tif')
+    data.add('../images/data/Wald.csv',
+             '../images/Wald.tif')
+    data.add('../images/data/Winter.csv',
+             '../images/Winter.tif')
     data.add('../space_crater_dataset/data/1_24.csv',
              '../space_crater_dataset/images/tile1_24.pgm')
     data.add('../space_crater_dataset/data/1_25.csv',
@@ -51,6 +63,7 @@ def import_data():
              '../space_crater_dataset/images/tile3_24.pgm')
     data.add('../space_crater_dataset/data/3_25.csv',
              '../space_crater_dataset/images/tile3_25.pgm')
+"""
     data.finalize()
     
     print '(datasets, positive, negative)'
@@ -95,34 +108,53 @@ def train_model(model, data, x, y_, keep_prob):
     
     # merge summaries and write them to /tmp/crater_logs
     merged_summary = tf.merge_all_summaries()
-    writer = tf.train.SummaryWriter("/tmp/crater_logs", sess.graph_def)
+    writer = tf.train.SummaryWriter("/tmp/crater_logs", sess.graph)
+    
+    global_step = tf.Variable(0, trainable=False, name='global_step')
+    
+    # deep model
+    #loss = nn.loss(model, y_)
     
     # training
     with tf.name_scope('train'):
+        # for simple nn
         train_step = nn.train(model, y_)
+        #train_step = nn.train(data.num_examples, global_step, loss)
     
     tf.initialize_all_variables().run()
     
+    # ---------- restore model ---------------#
+    saver = tf.train.Saver()
+    if tf.train.latest_checkpoint(FLAGS.checkpoint_path) != None:
+        saver.restore(sess, tf.train.latest_checkpoint(FLAGS.checkpoint_path))  
+    
     # print overall accuracy
-    print 'Overall Accuracy: %s' % (overall_accuracy(data, x, y_, keep_prob, accuracy))
+    # print 'Overall Accuracy: %s' % (overall_accuracy(data, x, y_, keep_prob, accuracy))
     
     # train the model
-    for i in range(FLAGS.max_steps):
+    for i in xrange(FLAGS.max_steps):
         batch_xs, batch_ys = data.next_batch(FLAGS.batch_size)
+        
+        # train batch
+        feed = {x:batch_xs, y_:batch_ys, keep_prob:0.5}
+        #_, loss_value = sess.run([train_step, loss], feed_dict = feed)
+        sess.run([global_step.assign_add(1),train_step], feed_dict = feed)
+        step = tf.train.global_step(sess, global_step)
+        #assert not numpy.isnan(loss_value)
     
         if i % 100 == 0:
             # record summary data and accuracy
             feed = {x:batch_xs, y_:batch_ys, keep_prob:1.0}
             summary_str, acc = sess.run([merged_summary, accuracy], feed_dict = feed)
-            writer.add_summary(summary_str, i)
-            print 'Accuracy at step %s: %s' % (i, acc)
-        else:
-            # train batch
-            feed = {x:batch_xs, y_:batch_ys, keep_prob:0.5}
-            sess.run(train_step, feed_dict = feed)
+            writer.add_summary(summary_str, step)
+            print 'Accuracy at step %s: %s' % (step, acc)
+            
+        if i % 100 == 0 or (i + 1) == FLAGS.max_steps:
+            saver.save(sess, FLAGS.checkpoint_path + '/simple.ckpt', global_step = step)
+            
             
     # print overall accuracy
-    print 'Overall Accuracy: %s' % (overall_accuracy(data, x, y_, keep_prob, accuracy))
+    # print 'Overall Accuracy: %s' % (overall_accuracy(data, x, y_, keep_prob, accuracy))
     
 
 def sliding_window_detection(model, x, keep_prob, src):
@@ -139,14 +171,14 @@ def sliding_window_detection(model, x, keep_prob, src):
     """
     global sess
     objects = []
-    for windows, coords in utils.slidingWindow(src, FLAGS.step_size, (FLAGS.image_size, FLAGS.image_size)):
+    for windows, coords in utils.slidingWindow(src, FLAGS.step_size, (FLAGS.window_size, FLAGS.window_size), (FLAGS.image_size, FLAGS.image_size)):
         
         feed = {x:windows, keep_prob:1.0}
         y = sess.run(model, feed_dict = feed)
 
         for i in range(0, len(y)):
-            if y[i][0] < 0.25 and y[i][1] > 0.75:
-                objects.append((coords[i][0], coords[i][1], 2))
+            if y[i][0] < 0.1 and y[i][1] > 0.9:
+                objects.append((coords[i][0], coords[i][1], 5))
     return objects       
 
 
@@ -179,8 +211,18 @@ def candidate_detection(model, x, keep_prob, src, candidates):
     Returns
         list of found craters [(x,y,radius)]
     """
-    x_border = 10
-    y_border = 10
+    # find max diameter
+    x_border = 0
+    y_border = 0
+    for c in candidates:
+        diameter = int(c[2] * 2)
+        if diameter > x_border:
+            x_border = diameter
+        if diameter > y_border:
+            y_border = diameter
+        
+    x_border = x_border / 2
+    y_border = y_border / 2
     
     # add padding to image
     src = cv2.copyMakeBorder(src, x_border, y_border, x_border, y_border, cv2.BORDER_REPLICATE)
@@ -200,7 +242,7 @@ def candidate_detection(model, x, keep_prob, src, candidates):
     
     objects = []
     for i in range(0, len(y)):
-        if y[i][0] < 0.25 and y[i][1] > 0.75:
+        if y[i][0] < 0.1 and y[i][1] > 0.9:
             objects.append(candidates[i])
     
     return objects
@@ -221,10 +263,10 @@ def main(_):
     # use for 'network_simple' model
     model  = nn.create_network(x, keep_prob, FLAGS.image_size)
     # use for 'network' model
-    #model  = nn.create_network(network_input)
-
-    tf.initialize_all_variables().run()
-
+    #model  = nn.create_network(x)
+    
+    #tf.initialize_all_variables().run()
+    
     # ---------- train model -----------------#
     
     start = time.time()
@@ -264,7 +306,7 @@ def main(_):
     
     # mark found objects
     for (x,y,r) in objects:
-        cv2.circle(src, (x, y), r, (255,0,0), 0) #blue
+        cv2.circle(src, (x, y), r, (255,0,0), -1) #blue
     
     cv2.imwrite(FLAGS.output_file, src)
 
