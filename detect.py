@@ -1,18 +1,19 @@
 import utils
 import input_data
-import numpy
+import numpy as np
 import cv2
 import time
 import tensorflow as tf
 import network_simple as nn
 import csv
 import os
+import datetime
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
 
 flags.DEFINE_integer('image_size', 28, 'width and height of the input images')
-flags.DEFINE_string('test', 'Stadt', 'name of the test image')
+flags.DEFINE_string('test', 'Land', 'name of the test image')
 
 flags.DEFINE_boolean('show_ground_truth', True, 'show ground truth data')
 flags.DEFINE_boolean('candidate_detection', False, 'enable candidate detection')
@@ -21,6 +22,7 @@ flags.DEFINE_boolean('sliding_window_detection', True, 'enable sliding_window_de
 flags.DEFINE_integer('window_size', 50, 'sliding window size')
 flags.DEFINE_integer('step_size', 10, 'sliding window step size')
 flags.DEFINE_float('delta', 0.01, 'detection tolerance delta')
+flags.DEFINE_integer('tol', 25, 'tolerance')
 
 flags.DEFINE_string('checkpoint_path','checkpoints/simple_rotated_without_mars', 'path to checkpoint')
 
@@ -36,20 +38,50 @@ def sliding_window_detection(model, x, keep_prob, src):
         keep_prob: keep probability placeholder
         src: image to apply the detection
     Returns:
-        list of found craters [(x,y,radius)]
+        list of found objects [(x,y,radius)]
     
     """
     global sess
-    objects = []
-    for windows, coords in utils.slidingWindow(src, FLAGS.step_size, (FLAGS.window_size, FLAGS.window_size), (FLAGS.image_size, FLAGS.image_size)):
-        
+    height, width = src.shape
+    mask = np.zeros((height,width,1), np.uint8)
+    w_size = (FLAGS.window_size, FLAGS.window_size)
+    i_size = (FLAGS.image_size, FLAGS.image_size)
+    
+    for windows, coords in utils.slidingWindow(src, FLAGS.step_size, w_size, i_size):
         feed = {x:windows, keep_prob:1.0}
         y = sess.run(model, feed_dict = feed)
 
         for i in range(0, len(y)):
             if y[i][0] < FLAGS.delta and y[i][1] > (1.0 - FLAGS.delta):
-                objects.append((coords[i][0], coords[i][1], 5))
-    return objects       
+                cv2.circle(mask, (coords[i][0], coords[i][1]), 5, (255,255,255), -1)
+    
+    # image processing
+    
+    kernel = np.ones((5,5,), np.uint8)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+    
+    params = cv2.SimpleBlobDetector_Params()
+    params.minThreshold = 100
+    params.maxThreshold = 255
+    
+    params.filterByArea = True
+    params.minArea = 200
+    params.maxArea = 10000
+    
+    params.filterByCircularity = False
+    params.filterByInertia = False
+    params.filterByConvexity = False
+    params.filterByColor = True
+    params.blobColor = 255
+
+    detector = cv2.SimpleBlobDetector(params)
+    keypoints = detector.detect(mask)
+    
+    objects = []
+    for k in keypoints:
+        objects.append((int(k.pt[0]), int(k.pt[1])))
+    
+    return objects
 
 
 # ============================================================= #
@@ -65,7 +97,7 @@ def candidate_detection(model, x, keep_prob, src, candidates):
         src: source image
         candidates: list of candidates [(x,y,radius)]
     Returns
-        list of found craters [(x,y,radius)]
+        list of found objects [(x,y,radius)]
     """
     # find max diameter
     x_border = 0
@@ -92,7 +124,7 @@ def candidate_detection(model, x, keep_prob, src, candidates):
         sub_image = utils.scaleImage(sub_image, (FLAGS.image_size, FLAGS.image_size))
         images.append(sub_image)
         
-    images = numpy.array(images).reshape(len(candidates), FLAGS.image_size * FLAGS.image_size)
+    images = np.array(images).reshape(len(candidates), FLAGS.image_size * FLAGS.image_size)
     feed = {x:images, keep_prob:1.0}
     y = sess.run(model, feed_dict = feed)
     
@@ -106,9 +138,30 @@ def candidate_detection(model, x, keep_prob, src, candidates):
     
 # ============================================================= #
     
+def evaluate(truth, detected):
+    t = list(truth)
+    d = list(detected)
+    
+    neg = 0
+    pos = 0
+    
+    for tx,ty,_ in t:
+        found = False
+        for i in xrange(len(d)):
+            if abs(tx-d[i][0]) < FLAGS.tol and abs(ty-d[i][1]) < FLAGS.tol:
+                del d[i]
+                pos = pos + 1
+                found = True
+                break
+        if not found:
+            neg = neg +1
+    
+    false_pos = len(d)
+    return pos, neg, false_pos
+
+# ============================================================= #
     
 def main(_):
-
     # ---------- create model ----------------#
     # model input placeholder
     x           = tf.placeholder("float", shape=[None, FLAGS.image_size * FLAGS.image_size])
@@ -129,43 +182,46 @@ def main(_):
         saver.restore(sess, tf.train.latest_checkpoint(FLAGS.checkpoint_path))  
     
     # ---------- object detection ------------#    
-    print 'starting detection...'
+    print 'starting detection of ' + FLAGS.test + '...'
     
-    src = utils.getImage('../images/' + FLAGS.test + '.tif')
+    img = utils.getImage('../images/' + FLAGS.test + '.tif')
     start = time.time()
     
     #sliding window detection
     if FLAGS.sliding_window_detection:
-        objects = sliding_window_detection(model, x, keep_prob, src)
+        detected = []#sliding_window_detection(model, x, keep_prob, img)
     
     # candidate detection
     if FLAGS.candidate_detection:
         candidates = utils.csv_to_list('candidates/' + FLAGS.test + '.csv')
-        objects = candidate_detection(model, x, keep_prob, src, candidates)
+        detected = candidate_detection(model, x, keep_prob, img, candidates)
     
     print 'detection time: %d' % (time.time() - start)
-    
-    # ----------- output ---------------------#
-    src = cv2.cvtColor(src, cv2.COLOR_GRAY2RGB) * 255
-    
-    # mark crater candidates
-    if FLAGS.candidate_detection:
-        for candidate in candidates:
-            cv2.circle(src, (candidate[0], candidate[1]), candidate[2], (0,0,255), 0) # red
-    
-    # mark ground truth craters
-    if FLAGS.show_ground_truth:
-        ground_truth_data = utils.csv_to_list('../images/data/' + FLAGS.test + '.csv', True)
-        for crater in ground_truth_data:
-            cv2.circle(src, (crater[0], crater[1]), crater[2], (0,255,0), 0) # green
-    
-    # mark found objects
-    for (x,y,r) in objects:
-        cv2.circle(src, (x, y), r, (255,0,0), -1) #blue
-    
+
+    # ------------- evaluation --------------#
+    ground_truth_data = utils.csv_to_list('../images/data/' + FLAGS.test + '.csv', True)
     global_step = tf.train.global_step(sess, global_step)
-    output_file = FLAGS.test + '_' + str(global_step) + 'its_' + str(FLAGS.delta) + 'delta_' + ('cd' if FLAGS.candidate_detection else 'sw')
-    cv2.imwrite('output/' + output_file + '.png', src)
+    tp, fn, fp = evaluate(ground_truth_data, detected)
+    tpr = float(tp) / (tp + fn)
+    
+    # ----------------output ----------------#
+    # image output
+    img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB) * 255
+    for c in detected:
+        cv2.circle(img, (c[0], c[1]), 25, [0,0,255],3)
+        
+    for c in ground_truth_data:
+        cv2.circle(img, (c[0], c[1]), 25, [0,255,0],3)
+    
+    output_file = FLAGS.test + '_' + str(global_step) + 'its_' + str(FLAGS.delta) + 'delta_' + ('cd' if FLAGS.candidate_detection else 'sw_') + str(datetime.datetime.now())
+    cv2.imwrite('output/' + output_file + '.png', img)
+    
+    # csv output
+    with open('output/results.csv', 'ab') as file:
+        writer = csv.writer(file, delimiter=',')
+        writer.writerow([FLAGS.test, output_file, ('cd' if FLAGS.candidate_detection else 'sw'), 
+                         str(global_step), str(len(ground_truth_data)), 
+                         str(len(detected)), str(FLAGS.delta), str(tp), str(fp), str(fn), str(tpr)])
 
 if __name__ == '__main__':
     tf.app.run()

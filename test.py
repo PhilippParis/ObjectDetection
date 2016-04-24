@@ -6,17 +6,21 @@ import time
 import tensorflow as tf
 import network_simple as nn
 import csv
+import datetime
 
 
 
+
+out = 'test' + str(datetime.datetime.now())
+print out
 
 IMAGE_SIZE = 64
 
 # test image load / show
-img = utils.getImage('test.png')
+#img = utils.getImage('test.png')
 
-utils.showImage('img', img)
-utils.showImage('rotate', utils.rotateImage(img, 90))
+#utils.showImage('img', img)
+#utils.showImage('rotate', utils.rotateImage(img, 90))
 
 
 

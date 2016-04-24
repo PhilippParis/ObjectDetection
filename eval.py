@@ -3,11 +3,12 @@ import gflags
 import sys
 import numpy as np
 import csv
+import utils
 
 FLAGS =  gflags.FLAGS
 gflags.DEFINE_string('file', 'Land_40000its_0.01delta_sw.png', 'name of the image file')
 gflags.DEFINE_string('test', 'Land', 'name of the test image')
-gflags.DEFINE_integer('tol', 20, 'tolerance')
+gflags.DEFINE_integer('tol', 25, 'tolerance')
 
 def findBlobs(mask):
     params = cv2.SimpleBlobDetector_Params()
@@ -47,15 +48,6 @@ def getDetected():
     return findBlobs(mask)
 
 
-
-def getGroundTruth():
-    craters = []
-    with open('../images/data/' + FLAGS.test + '.csv') as file:
-        for row in csv.reader(file, delimiter=','):
-            if int(row[3]) == 1:
-                craters.append((int(row[0]), int(row[1])))
-        return craters
-
 def evaluate(truth, detected):
     t = list(truth)
     d = list(detected)
@@ -63,7 +55,7 @@ def evaluate(truth, detected):
     neg = 0
     pos = 0
     
-    for tx,ty in t:
+    for tx,ty,_ in t:
         found = False
         for i in xrange(len(d)):
             if abs(tx-d[i][0]) < FLAGS.tol and abs(ty-d[i][1]) < FLAGS.tol:
@@ -87,10 +79,9 @@ def main(argv):
     img = cv2.imread('../images/' + FLAGS.test + '.tif')
         
     detected = getDetected()
-    truth = getGroundTruth()
+    truth = utils.csv_to_list('../images/data/' + FLAGS.test + '.csv', True)
     
-    # --------- outout -------------#
-    
+    # --------- output -------------#
     tp, fn, fp = evaluate(truth, detected)
     
     tpr = float(tp) / (tp + fn)
