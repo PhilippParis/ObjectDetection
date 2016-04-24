@@ -20,8 +20,9 @@ flags.DEFINE_boolean('sliding_window_detection', True, 'enable sliding_window_de
 
 flags.DEFINE_integer('window_size', 50, 'sliding window size')
 flags.DEFINE_integer('step_size', 10, 'sliding window step size')
+flags.DEFINE_float('delta', 0.01, 'detection tolerance delta')
 
-flags.DEFINE_string('checkpoint_path','checkpoints/simple_rotated_with_mars', 'path to checkpoint')
+flags.DEFINE_string('checkpoint_path','checkpoints/simple_rotated_without_mars', 'path to checkpoint')
 
 # start session
 sess = tf.InteractiveSession()
@@ -46,7 +47,7 @@ def sliding_window_detection(model, x, keep_prob, src):
         y = sess.run(model, feed_dict = feed)
 
         for i in range(0, len(y)):
-            if y[i][0] < 0.1 and y[i][1] > 0.9:
+            if y[i][0] < FLAGS.delta and y[i][1] > (1.0 - FLAGS.delta):
                 objects.append((coords[i][0], coords[i][1], 5))
     return objects       
 
@@ -97,7 +98,7 @@ def candidate_detection(model, x, keep_prob, src, candidates):
     
     objects = []
     for i in range(0, len(y)):
-        if y[i][0] < 0.1 and y[i][1] > 0.9:
+        if y[i][0] < FLAGS.delta and y[i][1] > (1.0 - FLAGS.delta):
             objects.append(candidates[i])
     
     return objects
@@ -163,7 +164,7 @@ def main(_):
         cv2.circle(src, (x, y), r, (255,0,0), -1) #blue
     
     global_step = tf.train.global_step(sess, global_step)
-    output_file = FLAGS.test + '_' + str(global_step) + 'its_' + ('cd' if FLAGS.candidate_detection else 'sw')
+    output_file = FLAGS.test + '_' + str(global_step) + 'its_' + str(FLAGS.delta) + 'delta_' + ('cd' if FLAGS.candidate_detection else 'sw')
     cv2.imwrite('output/' + output_file + '.png', src)
 
 if __name__ == '__main__':

@@ -13,9 +13,9 @@ FLAGS = flags.FLAGS
 
 flags.DEFINE_integer('image_size', 28, 'width and height of the input images')
 flags.DEFINE_integer('batch_size', 50, 'training batch size')
-flags.DEFINE_integer('max_steps', 5000, 'number of steps to run trainer')
+flags.DEFINE_integer('max_steps', 10000, 'number of steps to run trainer')
 
-flags.DEFINE_string('checkpoint_path','checkpoints/simple_rotated_with_mars', 'path to checkpoint')
+flags.DEFINE_string('checkpoint_path','checkpoints/simple_rotated_without_mars', 'path to checkpoint')
 
 sess = tf.InteractiveSession()
 
@@ -34,8 +34,11 @@ def import_data():
              '../images/Umland.tif')
     data.add('../images/data/Wald.csv',
              '../images/Wald.tif')
+    """
     data.add('../images/data/Winter.csv',
              '../images/Winter.tif')
+    """
+    """
     data.add('../space_crater_dataset/data/1_24.csv',
              '../space_crater_dataset/images/tile1_24.pgm')
     data.add('../space_crater_dataset/data/1_25.csv',
@@ -48,7 +51,7 @@ def import_data():
              '../space_crater_dataset/images/tile3_24.pgm')
     data.add('../space_crater_dataset/data/3_25.csv',
              '../space_crater_dataset/images/tile3_25.pgm')
-
+    """
     data.finalize()
     
     print '(datasets, positive, negative)'
@@ -101,12 +104,13 @@ def train_model(model, data, x, y_, keep_prob):
     # ------------- train --------------------#
     for i in xrange(FLAGS.max_steps):
         batch_xs, batch_ys = data.next_batch(FLAGS.batch_size)
-        sess.run([global_step.assign_add(1),train_step], feed_dict = feed)
         
         # train batch
         feed = {x:batch_xs, y_:batch_ys, keep_prob:0.5}
+        sess.run([global_step.assign_add(1),train_step], feed_dict = feed)
         #_, loss_value = sess.run([train_step, loss], feed_dict = feed)
         step = tf.train.global_step(sess, global_step)
+        
         #assert not numpy.isnan(loss_value)
     
         if step % 100 == 0:
@@ -116,7 +120,7 @@ def train_model(model, data, x, y_, keep_prob):
             writer.add_summary(summary_str, step)
             print 'Accuracy at step %s: %s' % (step, acc)
             
-        if step % 100 == 0 or (i + 1) == FLAGS.max_steps:
+        if step % 1000 == 0 or (i + 1) == FLAGS.max_steps:
             saver.save(sess, FLAGS.checkpoint_path + '/simple.ckpt', global_step = step)
             
     
@@ -141,8 +145,6 @@ def main(_):
     model  = nn.create_network(x, keep_prob, FLAGS.image_size)
     # use for 'network' model
     #model  = nn.create_network(x)
-    
-    #tf.initialize_all_variables().run()
     
     # ---------- train model -----------------#
     
