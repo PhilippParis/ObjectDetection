@@ -1,0 +1,6 @@
+output/*
+checkpoints/*
+candidates/*
+
+.directory
+*.pyc

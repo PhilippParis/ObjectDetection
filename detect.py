@@ -24,7 +24,10 @@ flags.DEFINE_integer('step_size', 10, 'sliding window step size')
 flags.DEFINE_float('delta', 0.01, 'detection tolerance delta')
 flags.DEFINE_integer('tol', 25, 'tolerance')
 
-flags.DEFINE_string('checkpoint_path','checkpoints/simple_rotated_without_mars', 'path to checkpoint')
+flags.DEFINE_string('checkpoint_dir','checkpoints/simple_rotated_without_mars', 'path to checkpoint dir')
+flags.DEFINE_string('ground_truth_dir','../images/data/', 'path to ground truth data dir')
+flags.DEFINE_string('input_dir','../images/', 'path to input images')
+flags.DEFINE_string('output_dir','output/', 'path to output dir')
 
 # start session
 sess = tf.InteractiveSession()
@@ -178,18 +181,18 @@ def main(_):
     
     # ---------- restore model ---------------#
     saver = tf.train.Saver()
-    if tf.train.latest_checkpoint(FLAGS.checkpoint_path) != None:
-        saver.restore(sess, tf.train.latest_checkpoint(FLAGS.checkpoint_path))  
+    if tf.train.latest_checkpoint(FLAGS.checkpoint_dir) != None:
+        saver.restore(sess, tf.train.latest_checkpoint(FLAGS.checkpoint_dir))  
     
     # ---------- object detection ------------#    
     print 'starting detection of ' + FLAGS.test + '...'
     
-    img = utils.getImage('../images/' + FLAGS.test + '.tif')
+    img = utils.getImage(FLAGS.input_dir + FLAGS.test + '.tif')
     start = time.time()
     
     #sliding window detection
     if FLAGS.sliding_window_detection:
-        detected = []#sliding_window_detection(model, x, keep_prob, img)
+        detected = sliding_window_detection(model, x, keep_prob, img)
     
     # candidate detection
     if FLAGS.candidate_detection:
@@ -199,11 +202,16 @@ def main(_):
     print 'detection time: %d' % (time.time() - start)
 
     # ------------- evaluation --------------#
-    ground_truth_data = utils.csv_to_list('../images/data/' + FLAGS.test + '.csv', True)
+    ground_truth_data = utils.csv_to_list(FLAGS.ground_truth_dir + FLAGS.test + '.csv', True)
     global_step = tf.train.global_step(sess, global_step)
     tp, fn, fp = evaluate(ground_truth_data, detected)
-    tpr = float(tp) / (tp + fn)
+    precision = float(tp) / float(tp + fp)
+    recall = float(tp) / float(tp + fn)
     
+    if tp != 0:
+        f1_score = 2 * (precision * recall) / (precision + recall)
+    else:
+        f1_score = 0.0
     # ----------------output ----------------#
     # image output
     img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB) * 255
@@ -211,17 +219,18 @@ def main(_):
         cv2.circle(img, (c[0], c[1]), 25, [0,0,255],3)
         
     for c in ground_truth_data:
-        cv2.circle(img, (c[0], c[1]), 25, [0,255,0],3)
+        cv2.circle(img, (c[0], c[1]), 20, [0,255,0],3)
     
     output_file = FLAGS.test + '_' + str(global_step) + 'its_' + str(FLAGS.delta) + 'delta_' + ('cd' if FLAGS.candidate_detection else 'sw_') + str(datetime.datetime.now())
-    cv2.imwrite('output/' + output_file + '.png', img)
+    cv2.imwrite(FLAGS.output_dir + output_file + '.png', img)
     
     # csv output
-    with open('output/results.csv', 'ab') as file:
+    with open(FLAGS.output_dir + 'results.csv', 'ab') as file:
         writer = csv.writer(file, delimiter=',')
         writer.writerow([FLAGS.test, output_file, ('cd' if FLAGS.candidate_detection else 'sw'), 
                          str(global_step), str(len(ground_truth_data)), 
-                         str(len(detected)), str(FLAGS.delta), str(tp), str(fp), str(fn), str(tpr)])
+                         str(len(detected)), str(FLAGS.delta), str(tp), str(fp), str(fn), 
+                         str(precision), str(recall), str(f1_score)])
 
 if __name__ == '__main__':
     tf.app.run()
