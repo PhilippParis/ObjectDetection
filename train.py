@@ -15,7 +15,8 @@ flags.DEFINE_integer('image_size', 28, 'width and height of the input images')
 flags.DEFINE_integer('batch_size', 50, 'training batch size')
 flags.DEFINE_integer('max_steps', 10000, 'number of steps to run trainer')
 
-flags.DEFINE_string('checkpoint_path','checkpoints/simple_rotated_without_mars', 'path to checkpoint')
+flags.DEFINE_string('checkpoint_path','checkpoints/simple_nn', 'path to checkpoint')
+flags.DEFINE_string('log_dir','/tmp/object_detection_logs', 'path to log directory')
 
 sess = tf.InteractiveSession()
 
@@ -68,7 +69,7 @@ def train_model(model, data, x, y_, keep_prob):
     
     # merge summaries and write them to /tmp/crater_logs
     merged_summary = tf.merge_all_summaries()
-    writer = tf.train.SummaryWriter("/tmp/crater_logs", sess.graph)
+    writer = tf.train.SummaryWriter(FLAGS.log_dir, sess.graph)
     global_step = tf.Variable(0, trainable=False, name='global_step')
     
     # deep model
@@ -107,7 +108,7 @@ def train_model(model, data, x, y_, keep_prob):
             print 'Accuracy at step %s: %s' % (step, acc)
             
         if step % 1000 == 0 or (i + 1) == FLAGS.max_steps:
-            saver.save(sess, FLAGS.checkpoint_path + '/simple.ckpt', global_step = step)
+            saver.save(sess, FLAGS.checkpoint_path + '/model.ckpt', global_step = step)
             
     
     

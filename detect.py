@@ -21,10 +21,11 @@ flags.DEFINE_boolean('sliding_window_detection', True, 'enable sliding_window_de
 
 flags.DEFINE_integer('window_size', 50, 'sliding window size')
 flags.DEFINE_integer('step_size', 10, 'sliding window step size')
-flags.DEFINE_float('delta', 0.01, 'detection tolerance delta')
 flags.DEFINE_integer('tol', 25, 'tolerance')
+flags.DEFINE_float('delta', 0.01, 'detection tolerance delta')
 
-flags.DEFINE_string('checkpoint_dir','checkpoints/simple_rotated_without_mars', 'path to checkpoint dir')
+flags.DEFINE_string('checkpoint_dir','checkpoints/simple_nn', 'path to checkpoint dir')
+flags.DEFINE_string('candidate_dir','candidates/', 'path to checkpoint dir')
 flags.DEFINE_string('ground_truth_dir','../images/data/', 'path to ground truth data dir')
 flags.DEFINE_string('input_dir','../images/', 'path to input images')
 flags.DEFINE_string('output_dir','output/', 'path to output dir')
@@ -204,7 +205,7 @@ def main(_):
     
     # candidate detection
     if FLAGS.candidate_detection:
-        candidates = utils.csv_to_list('candidates/' + FLAGS.test + '.csv')
+        candidates = utils.csv_to_list(FLAGS.candidate_dir + FLAGS.test + '.csv')
         detected = candidate_detection(model, x, keep_prob, img, candidates)
     
     print 'detection time: %d' % (time.time() - start)
@@ -230,7 +231,8 @@ def main(_):
     for c in ground_truth_data:
         cv2.circle(img, (c[0], c[1]), 20, [0,255,0],3)
     
-    output_file = FLAGS.test + '_' + str(global_step) + 'its_' + str(FLAGS.delta) + 'delta_' + ('cd' if FLAGS.candidate_detection else 'sw_') + str(datetime.datetime.now())
+    output_file = FLAGS.test + '_' + str(global_step) + 'its_' + str(FLAGS.delta) + 'delta_' + \
+        ('cd' if FLAGS.candidate_detection else 'sw_') + str(datetime.datetime.now())
     cv2.imwrite(FLAGS.output_dir + output_file + '.png', img)
     
     # csv output
