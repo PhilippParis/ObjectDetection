@@ -142,25 +142,33 @@ def candidate_detection(model, x, keep_prob, src, candidates):
 # ============================================================= #
     
 def evaluate(truth, detected):
+    """
+    evaluates the quality of the detection
+    Args:
+        truth: list of ground truth objects center points
+        detected: list of detected objects center points
+    Returns:
+        true positive count, false_negative count, false positive count
+    """
     t = list(truth)
     d = list(detected)
     
-    neg = 0
-    pos = 0
+    fn = 0
+    tp = 0
     
     for tx,ty,_ in t:
         found = False
         for i in xrange(len(d)):
             if abs(tx-d[i][0]) < FLAGS.tol and abs(ty-d[i][1]) < FLAGS.tol:
                 del d[i]
-                pos = pos + 1
+                tp += 1
                 found = True
                 break
         if not found:
-            neg = neg +1
+            fn += 1
     
-    false_pos = len(d)
-    return pos, neg, false_pos
+    fp = len(d)
+    return tp,fn,fp
 
 # ============================================================= #
     
@@ -212,6 +220,7 @@ def main(_):
         f1_score = 2 * (precision * recall) / (precision + recall)
     else:
         f1_score = 0.0
+        
     # ----------------output ----------------#
     # image output
     img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB) * 255

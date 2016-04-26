@@ -1,3 +1,8 @@
+"""
+based on the tensorflow tutorial:
+https://github.com/tensorflow/tensorflow/blob/r0.7/tensorflow/examples/tutorials/mnist/mnist.py
+"""
+
 import tensorflow as tf
 
 # ----------------- HELPERS ----------------- #

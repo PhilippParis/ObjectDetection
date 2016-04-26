@@ -14,20 +14,6 @@ def getImage(path):
     return cv2.normalize(img, None, 0.0, 1.0, cv2.NORM_MINMAX, cv2.CV_32F) 
 
 
-
-def showImage(title, image):
-    """
-    displays the image in a window with given title
-    
-    Args:
-        title: window title
-        image: image to display
-    """
-    cv2.imshow(title, image)
-    cv2.waitKey(0)
-
-
-
 def getSubImage(image, x, y, size):
     """
     returns a subimage from an image
@@ -102,6 +88,7 @@ def slidingWindow(image, stepSize, windowSize, outputSize):
                 count = 0
                 
     yield numpy.array(images).reshape([count, outputSize[0] * outputSize[1]]), numpy.array(coords).reshape([count, 2])
+
 
 def csv_to_list(csv_file_path, onlyTrue=False):
     """

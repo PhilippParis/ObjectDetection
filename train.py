@@ -38,20 +38,6 @@ def import_data():
     data.add('../images/data/Winter.csv',
              '../images/Winter.tif')
     """
-    """
-    data.add('../space_crater_dataset/data/1_24.csv',
-             '../space_crater_dataset/images/tile1_24.pgm')
-    data.add('../space_crater_dataset/data/1_25.csv',
-             '../space_crater_dataset/images/tile1_25.pgm')
-    data.add('../space_crater_dataset/data/2_24.csv',
-             '../space_crater_dataset/images/tile2_24.pgm')
-    data.add('../space_crater_dataset/data/2_25.csv',
-             '../space_crater_dataset/images/tile2_25.pgm')
-    data.add('../space_crater_dataset/data/3_24.csv',
-             '../space_crater_dataset/images/tile3_24.pgm')
-    data.add('../space_crater_dataset/data/3_25.csv',
-             '../space_crater_dataset/images/tile3_25.pgm')
-    """
     data.finalize()
     
     print '(datasets, positive, negative)'

@@ -83,14 +83,6 @@ class Data:
         """
         
         # get subimage
-        """
-        if diameter < self.size[0]:
-            sub_image = utils.getSubImage(src_image, x, y, self.size)
-        else:
-            sub_image = utils.getSubImage(src_image, x, y, (diameter, diameter))
-            # scale subimage to defined size
-            sub_image = utils.scaleImage(sub_image, self.size)
-        """
         sub_image = utils.getSubImage(src_image, x, y, (diameter, diameter))
         sub_image = utils.scaleImage(sub_image, self.size)
         

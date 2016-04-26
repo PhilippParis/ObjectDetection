@@ -1,3 +1,8 @@
+"""
+based on the tensorflow tutorial:
+https://github.com/tensorflow/tensorflow/blob/r0.7/tensorflow/models/image/cifar10/cifar10.py
+"""
+
 import tensorflow as tf
 
 flags = tf.app.flags
