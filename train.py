@@ -27,19 +27,15 @@ def import_data():
     # Import data
     data = input_data.Data(FLAGS.image_size, FLAGS.image_size)
     
-    data.add('../images/data/Land.csv',
-             '../images/Land.tif')
-    data.add('../images/data/Stadt.csv',
-             '../images/Stadt.tif')
-    data.add('../images/data/Umland.csv',
-             '../images/Umland.tif')
-    data.add('../images/data/Wald.csv',
-             '../images/Wald.tif')
+    data.add('../images/data/1.csv', '../images/1.tif')
+    data.add('../images/data/2.csv', '../images/2.tif')
+    data.add('../images/data/3.csv', '../images/3.tif')
+    data.add('../images/data/4.csv', '../images/4.tif')
     """
     data.add('../images/data/Winter.csv',
              '../images/Winter.tif')
     """
-    data.finalize()
+    data.finalize()     
     
     print '(datasets, positive, negative)'
     print data.info()

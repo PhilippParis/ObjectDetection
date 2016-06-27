@@ -68,6 +68,7 @@ class Data:
         for row in reader:
             label = numpy.array([0,1]) if int(row[3]) == 1 else numpy.array([1,0])
             self.add_dataset(src, x_border + int(row[0]), y_border + int(row[1]), int(row[2]), label)
+        del src
             
                 
     def add_dataset(self, src_image, x, y, diameter, label):

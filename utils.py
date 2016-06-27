@@ -10,7 +10,7 @@ def getImage(path):
     Returns:
         image at path
     """
-    img = cv2.imread(path, cv2.CV_LOAD_IMAGE_GRAYSCALE)
+    img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
     return cv2.normalize(img, None, 0.0, 1.0, cv2.NORM_MINMAX, cv2.CV_32F) 
 
 

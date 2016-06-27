@@ -13,7 +13,7 @@ flags = tf.app.flags
 FLAGS = flags.FLAGS
 
 flags.DEFINE_integer('image_size', 28, 'width and height of the input images')
-flags.DEFINE_string('test', 'Land', 'name of the test image')
+flags.DEFINE_string('test', '22', 'name of the test image')
 
 flags.DEFINE_boolean('show_ground_truth', True, 'show ground truth data')
 flags.DEFINE_boolean('candidate_detection', False, 'enable candidate detection')
@@ -78,7 +78,7 @@ def sliding_window_detection(model, x, keep_prob, src):
     params.filterByColor = True
     params.blobColor = 255
 
-    detector = cv2.SimpleBlobDetector(params)
+    detector = cv2.SimpleBlobDetector_create(params)
     keypoints = detector.detect(mask)
     
     objects = []

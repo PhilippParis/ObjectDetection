@@ -8,8 +8,8 @@ import csv
 
 FLAGS =  gflags.FLAGS
 
-gflags.DEFINE_string('input_file','../images/Umland_ausgewertet.tif', 'path to input file')
-gflags.DEFINE_string('output_file','../images/data/Umland.csv', 'output file')
+gflags.DEFINE_string('input_file','../images/25_marked.tif', 'path to input file')
+gflags.DEFINE_string('output_file','../images/data/25.csv', 'output file')
 gflags.DEFINE_integer('rad', 25, 'radius of objects')
 
 def findObjects(mask):
@@ -35,7 +35,7 @@ def findObjects(mask):
     params.filterByColor = True
     params.blobColor = 255
 
-    detector = cv2.SimpleBlobDetector(params)
+    detector = cv2.SimpleBlobDetector_create(params)
     keypoints = detector.detect(mask)
     
     blobs = []
@@ -60,7 +60,7 @@ def main(argv):
     # --------- positive objects -----------------#
     mask = cv2.inRange(img, np.array([0,0,255]), np.array([0,0,255]))
     mask = cv2.normalize(mask, None, 0, 255, cv2.NORM_MINMAX) 
-    mask = cv2.cvtColor(mask, cv2.cv.CV_GRAY2BGR)
+    mask = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
     
     objects = findObjects(mask)
     count = len(objects)
@@ -87,11 +87,14 @@ def main(argv):
         for c in objects:
             writer.writerow(c)
     
+    # ----------------- show image ---------------------#
+    '''
     for c in objects:
-        cv2.circle(mask, (c[0], c[1]), FLAGS.rad, ([0,255,0] if c[3] == 1 else [0,0,255]),3)
+        cv2.circle(img, (c[0], c[1]), FLAGS.rad, ([0,255,0] if c[3] == 1 else [0,0,255]),3)
     
-    cv2.imshow('object mask', cv2.resize(mask, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_CUBIC))   
+    cv2.imshow('object mask', cv2.resize(img, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_CUBIC))   
     cv2.waitKey(0)
+    '''
     
 if __name__ == '__main__':
     main(sys.argv)
