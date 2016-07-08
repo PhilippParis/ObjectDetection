@@ -6,12 +6,10 @@ import tensorflow as tf
 
 class Data:
     'Data class for handling input data'
-    
-    images = numpy.array([], dtype=numpy.uint8)     # input data: images
+    images = numpy.array([], dtype=numpy.uint8)     # images
     labels = numpy.array([], dtype=numpy.uint8)     # desired output data: [0,1] = crater; [1,0] = no crater
-    coords = numpy.array([], dtype=numpy.uint8)     # coordinates of the crater in the src image if available
-    size = (0,0)                                    # size of the images
-    num_examples = 0                                # number of examples stored in this class
+    img_size = (0,0)                                # size of the images
+    count = 0                                       # number of images stored in this class
     
     def __init__(self, width, height):
         """
@@ -21,82 +19,82 @@ class Data:
             width: input image width
             height: input image height
         """
-        self.size = (width, height)
+        self.img_size = (width, height)
+        
+    # ============================================================= #    
 
     def finalize(self):
         """
         finalizes the datasets; must be called after adding all data
         """
+        self.images = self.images.reshape(self.count, self.img_size[0] * self.img_size[1])
+        self.labels = self.labels.reshape(self.count, 2)
         
-        self.images = self.images.reshape(self.num_examples, self.size[0] * self.size[1])
-        self.labels = self.labels.reshape(self.num_examples, 2)
-        self.coords = self.coords.reshape(self.num_examples, 3)
+    # ============================================================= #    
+        
+    def get_image_with_border(self, data_path, image_path):
+        """
+        returns the image with a border around the image
+        
+        Args:
+            data_path:  path to the csv file containing the crater coordinates (x,y) in the src image, 
+                        the crater diameter and the label (1 = crater) in this order
+            image_path: path to the src image
+        Returns: 
+            image with border, border size
+        """
+        src_img = utils.getImage(image_path)
+        csvfile = open(data_path, 'rb')
+        reader = csv.reader(csvfile, delimiter=',')
+        
+        # get max diameter
+        max_diameter = 0
+        for row in reader:
+            if int(row[2]) > max_diameter:
+                max_diameter = int(row[2])
+        
+        # add border
+        border = max_diameter / 2
+        return cv2.copyMakeBorder(src_img, border, border, border, border, cv2.BORDER_REPLICATE), border
+        
+    # ============================================================= #    
         
     def add(self, data_path, image_path):
         """
-        adds datasets from a single image 
+        adds images to the training data set
         
         Args:
             data_path:  path to the csv file containing the crater coordinates (x,y) in the src image, 
                         the crater diameter and the label (1 = crater) in this order
             image_path: path to the src image
         """
+        src_image, border = self.get_image_with_border(data_path, image_path)
+        csv_file = open(data_path, 'rb')
+        csv_reader = csv.reader(csv_file, delimiter=',')
         
-        src = utils.getImage(image_path)
-        
-        csvfile = open(data_path, 'rb')
-        reader = csv.reader(csvfile, delimiter=',')
-        
-        # get max diameter and add border to src image
-        x_border = 0
-        y_border = 0
-        
-        for row in reader:
+        for row in csv_reader:
+            # read row
+            pos_x = border + int(row[0])
+            pos_y = border + int(row[1])
             diameter = int(row[2])
-            if diameter > x_border:
-                x_border = diameter
-            if diameter > y_border:
-                y_border = diameter
-        
-        x_border = x_border / 2
-        y_border = y_border / 2
-
-        src = cv2.copyMakeBorder(src, x_border, y_border, x_border, y_border, cv2.BORDER_REPLICATE)
-        
-        csvfile = open(data_path, 'rb')
-        reader = csv.reader(csvfile, delimiter=',')
-        for row in reader:
-            label = numpy.array([0,1]) if int(row[3]) == 1 else numpy.array([1,0])
-            self.add_dataset(src, x_border + int(row[0]), y_border + int(row[1]), int(row[2]), label)
-        del src
             
-                
-    def add_dataset(self, src_image, x, y, diameter, label):
-        """
-        adds a single dataset
-        
-        Args:
-            src_image: source image
-            x: x coordinate of the crater in the src image (in pixel)
-            y: y coordinate of the crater in the src image (in pixel)
-            diameter: diameter of the crater in pixels
-            label: label of the crater [0,1] = crater; [1,0] = no crater
-        """
-        
-        # get subimage
-        sub_image = utils.getSubImage(src_image, x, y, (diameter, diameter))
-        sub_image = utils.scaleImage(sub_image, self.size)
-        
-        for i in xrange(4):
+            # get label
+            label = numpy.array([0,1]) if int(row[3]) == 1 else numpy.array([1,0])
+            
+            # get subimage
+            sub_image = utils.getSubImage(src_image, pos_x, pos_y, (diameter, diameter))
+            sub_image = utils.scaleImage(sub_image, self.img_size)
+            
             # add dataset
             self.images = numpy.append(self.images, sub_image)
             self.labels = numpy.append(self.labels, label)
-            self.coords = numpy.append(self.coords, [x, y, diameter])
-            self.num_examples = self.num_examples + 1
-            
-            # rotate image
-            sub_image = utils.rotateImage(sub_image, 90)
+            self.count = self.count + 1
         
+        # free memory
+        del src_image
+        csv_file.close()
+        
+    # ============================================================= #    
                 
     def next_batch(self, batch_size):
         """
@@ -107,21 +105,23 @@ class Data:
         """
         
         # shuffle data
-        perm = numpy.arange(self.num_examples) 
+        perm = numpy.arange(self.count) 
         numpy.random.shuffle(perm)
         self.images = self.images[perm]
         self.labels = self.labels[perm]
         
         return (self.images[0:batch_size], self.labels[0:batch_size])
     
+    # ============================================================= #    
+    
     def info(self):
         """
         Returns:
-            (num_examples, number of positive datasets, number of negative datasets)
+            (count, number of positive datasets, number of negative datasets)
         """
         positive = numpy.sum(numpy.equal([0,1], self.labels).astype(int))
         negative = numpy.sum(numpy.equal([1,0], self.labels).astype(int))
         
-        return self.num_examples, positive / 2, negative / 2
+        return self.count, positive / 2, negative / 2
                 
     

@@ -13,7 +13,7 @@ flags = tf.app.flags
 FLAGS = flags.FLAGS
 
 flags.DEFINE_integer('image_size', 28, 'width and height of the input images')
-flags.DEFINE_string('test', '22', 'name of the test image')
+flags.DEFINE_string('test', 'eval_30', 'name of the test image')
 
 flags.DEFINE_boolean('show_ground_truth', True, 'show ground truth data')
 flags.DEFINE_boolean('candidate_detection', False, 'enable candidate detection')
@@ -26,8 +26,8 @@ flags.DEFINE_float('delta', 0.01, 'detection tolerance delta')
 
 flags.DEFINE_string('checkpoint_dir','checkpoints/simple_nn', 'path to checkpoint dir')
 flags.DEFINE_string('candidate_dir','candidates/', 'path to checkpoint dir')
-flags.DEFINE_string('ground_truth_dir','../images/data/', 'path to ground truth data dir')
-flags.DEFINE_string('input_dir','../images/', 'path to input images')
+flags.DEFINE_string('ground_truth_dir','../eval_data/data/', 'path to ground truth data dir')
+flags.DEFINE_string('input_dir','../eval_data/', 'path to input images')
 flags.DEFINE_string('output_dir','output/', 'path to output dir')
 
 # start session

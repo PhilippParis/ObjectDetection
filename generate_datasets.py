@@ -8,9 +8,9 @@ import csv
 
 FLAGS =  gflags.FLAGS
 
-gflags.DEFINE_string('input_file','../images/25_marked.tif', 'path to input file')
-gflags.DEFINE_string('output_file','../images/data/25.csv', 'output file')
-gflags.DEFINE_integer('rad', 25, 'radius of objects')
+gflags.DEFINE_string('input_file','../data/training/train_1_marked.tif', 'path to input file')
+gflags.DEFINE_string('output_file','../data/training/data/test_1.csv', 'output file')
+gflags.DEFINE_integer('rad', 64, 'radius of objects')
 
 def findObjects(mask):
     """
@@ -72,7 +72,7 @@ def main(argv):
         
         valid = True
         for c in objects:
-            if abs(x - c[0]) < 2*FLAGS.rad and abs(y - c[1]) < 2*FLAGS.rad:
+            if abs(x - c[0]) < 2 * FLAGS.rad and abs(y - c[1]) < 2 * FLAGS.rad:
                 valid = False
                 break
         if valid:
@@ -88,13 +88,13 @@ def main(argv):
             writer.writerow(c)
     
     # ----------------- show image ---------------------#
-    '''
+    """
     for c in objects:
         cv2.circle(img, (c[0], c[1]), FLAGS.rad, ([0,255,0] if c[3] == 1 else [0,0,255]),3)
     
-    cv2.imshow('object mask', cv2.resize(img, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_CUBIC))   
+    cv2.imshow('object mask', cv2.resize(img, None, fx=0.15, fy=0.15, interpolation=cv2.INTER_CUBIC))   
     cv2.waitKey(0)
-    '''
+    """
     
 if __name__ == '__main__':
     main(sys.argv)
