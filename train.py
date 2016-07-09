@@ -25,11 +25,13 @@ def import_data():
     Returns training and evaluation data sets
     """
     train_set = input_data.Data(FLAGS.image_size, FLAGS.image_size)
-    train_set.add('../data/training/data/train_1.csv', '../data/training/train_1.tif')
+    for i in xrange(1, 5):
+        train_set.add('../data/training/data/train_1.csv', '../data/training/train_1.tif')
     train_set.finalize()   
     
     eval_set = input_data.Data(FLAGS.image_size, FLAGS.image_size)
-    eval_set.add('../data/evaluation/data/eval_1.csv', '../data/evaluation/eval_1.tif')
+    for i in xrange(5, 19):
+        eval_set.add('../data/evaluation/data/eval_1.csv', '../data/evaluation/eval_1.tif')
     eval_set.finalize()     
     
     print '(datasets, positive, negative)'
@@ -77,10 +79,9 @@ def train_model(model, train_set, eval_set, x, y_, keep_prob):
     # ------------- train --------------------#
     for i in xrange(FLAGS.max_steps):
         # train mini batches
-        for batch_i in xrange(train_set.count / FLAGS.batch_size):
-            batch_xs, batch_ys = train_set.next_batch(FLAGS.batch_size)
-            feed = {x:batch_xs, y_:batch_ys, keep_prob:0.5}
-            sess.run([train_step], feed_dict = feed)
+        batch_xs, batch_ys = train_set.next_batch(FLAGS.batch_size)
+        feed = {x:batch_xs, y_:batch_ys, keep_prob:0.5}
+        sess.run([train_step], feed_dict = feed)
         
         # increment global step count
         sess.run(global_step.assign_add(1))
@@ -99,7 +100,6 @@ def train_model(model, train_set, eval_set, x, y_, keep_prob):
             
     
 # ============================================================= #    
-
 
 def main(_):
     # ---------- import data ----------------#
