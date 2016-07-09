@@ -76,19 +76,24 @@ def train_model(model, train_set, eval_set, x, y_, keep_prob):
     
     # ------------- train --------------------#
     for i in xrange(FLAGS.max_steps):
-        train_batch_xs, train_batch_ys = train_set.next_batch(FLAGS.batch_size)
+        # train mini batches
+        for batch_i in xrange(train_set.count / FLAGS.batch_size):
+            batch_xs, batch_ys = train_set.next_batch(FLAGS.batch_size)
+            feed = {x:batch_xs, y_:batch_ys, keep_prob:0.5}
+            sess.run([train_step], feed_dict = feed)
         
-        # train batch
-        feed = {x:train_batch_xs, y_:train_batch_ys, keep_prob:0.5}
-        sess.run([global_step.assign_add(1), train_step], feed_dict = feed)
+        # increment global step count
+        sess.run(global_step.assign_add(1))
         step = tf.train.global_step(sess, global_step)
         
+        # validate 
         if step % 100 == 0:
             feed = {x:eval_set.images, y_:eval_set.labels, keep_prob:1.0}
             summary_str, acc = sess.run([merged_summary, accuracy], feed_dict = feed)
             writer.add_summary(summary_str, step)
             print 'Accuracy at step %s: %s' % (step, acc)
             
+        # save model
         if step % 1000 == 0 or (i + 1) == FLAGS.max_steps:
             saver.save(sess, FLAGS.checkpoint_path + '/model.ckpt', global_step = step)
             

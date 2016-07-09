@@ -10,6 +10,7 @@ class Data:
     labels = numpy.array([], dtype=numpy.uint8)     # desired output data: [0,1] = crater; [1,0] = no crater
     img_size = (0,0)                                # size of the images
     count = 0                                       # number of images stored in this class
+    index_in_epoch = 0                              # current start index
     
     def __init__(self, width, height):
         """
@@ -101,16 +102,26 @@ class Data:
         Args:
             batch_size: number of examples 
         Returns:
-            a randomly selected batch of examples (input,labels)
+            returns the next batch of examples (input,labels)
+            shuffles the examples at the end of an epoch (all examples returned)
         """
         
-        # shuffle data
-        perm = numpy.arange(self.count) 
-        numpy.random.shuffle(perm)
-        self.images = self.images[perm]
-        self.labels = self.labels[perm]
+        start = self.index_in_epoch
+        self.index_in_epoch += batch_size
         
-        return (self.images[0:batch_size], self.labels[0:batch_size])
+        if self.index_in_epoch > self.count:
+            # shuffle data
+            perm = numpy.arange(self.count) 
+            numpy.random.shuffle(perm)
+            self.images = self.images[perm]
+            self.labels = self.labels[perm]
+            # start next epoch
+            start = 0
+            self.index_in_epoch = batch_size
+            
+        end = self.index_in_epoch
+                
+        return (self.images[start:end], self.labels[start:end])
     
     # ============================================================= #    
     
