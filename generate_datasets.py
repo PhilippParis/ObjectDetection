@@ -1,3 +1,16 @@
+"""
+exports positions of training examples (positives and negatives) from an image where the positions
+of the positive examples (e.g. craters in an image of mars) are marked with a red dot. 
+creates a number of negative examples by randomly selecting positions and verifies that no 
+positive example is near this selected position.
+
+the datasets are exported as csv file as follows: "center x, center y, radius, label (1, 0)"
+
+usage:
+1. duplicate your image and mark every positive example in one image with a red dot in the center
+2. python2 generate-datasets.py -input_file="path-to-marked-image" -output_file="out.csv" -rad="radius in pixels"
+"""
+
 import cv2
 import utils
 import gflags

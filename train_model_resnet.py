@@ -1,3 +1,15 @@
+"""
+trains the residual network
+
+usage:
+1. edit import_data() to import your training/evaluation data
+2. python2 train_model_resnet.py    -image_size="width/height of examples" 
+                                    -batch_size="batch_size" 
+                                    -max_steps="training steps" 
+                                    -checkpoint_path="directory to store tensorflow checkpoints"
+                                    -log_dir="tensorboard logdir"
+"""
+
 import utils
 import input_data
 import numpy

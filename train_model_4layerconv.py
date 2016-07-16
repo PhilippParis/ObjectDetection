@@ -1,10 +1,22 @@
+"""
+trains the 4layer convolutional network
+
+usage:
+1. edit import_data() to import your training/evaluation data
+2. python2 train_model_resnet.py    -image_size="width/height of examples" 
+                                    -batch_size="batch_size" 
+                                    -max_steps="training steps" 
+                                    -checkpoint_path="directory to store tensorflow checkpoints"
+                                    -log_dir="tensorboard logdir"
+"""
+
 import utils
 import input_data
 import numpy
 import cv2
 import time
 import tensorflow as tf
-import 4layer_net as nn
+import model_4layerconv as nn
 import csv
 import os
 
@@ -27,15 +39,17 @@ def import_data():
     train_set = input_data.Data(FLAGS.image_size, FLAGS.image_size)
     train_set.add_from_single_image("../data/train/10414_positives.png", FLAGS.image_size, 
                                     FLAGS.image_size, [0,1], 10414, 100)
+    """
     train_set.add_from_single_image("../data/train/20038_negatives.png", FLAGS.image_size, 
                                     FLAGS.image_size, [1,0], 20038, 100)
-    
+    """
     eval_set = input_data.Data(FLAGS.image_size, FLAGS.image_size)
     eval_set.add_from_single_image("../data/eval/1510_positives.png", FLAGS.image_size, 
                                     FLAGS.image_size, [0,1], 1510, 100)
-    
+    """
     eval_set.add_from_single_image("../data/eval/4054_negatives.png", FLAGS.image_size, 
                                     FLAGS.image_size, [1,0], 4054, 100)
+    """
     train_set.finalize()
     eval_set.finalize()
     

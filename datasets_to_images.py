@@ -1,3 +1,12 @@
+"""
+imports training examples (positives and negatives) from images (given their positions in an csv, see generate_datasets.py)
+and exports the examples as two images, each one containing either all positive or all negative examples.
+
+usage:
+1. edit import_data() to import all images with their corresponding csv
+2. python2 datasets_to_images.py -image_size="width/height of exported examples in pixels" -output_dir="output directory"
+"""
+
 import utils
 import cv2
 import gflags
@@ -11,9 +20,8 @@ import tensorflow as tf
 
 FLAGS = gflags.FLAGS
 
-gflags.DEFINE_integer('image_size', 64, 'width and height of the input images')
-gflags.DEFINE_string('eval_out_dir','../data/evaluation/data/', 'output directory evaluation data')
-gflags.DEFINE_string('train_out_dir','../data/training/data/', 'output directory training data')
+gflags.DEFINE_integer('image_size', 64, 'width and height of the output example images')
+gflags.DEFINE_string('output_dir','../data/', 'output directory')
 
 gflags.DEFINE_string('output_pos', 'positives.png', 'output file')
 gflags.DEFINE_string('output_neg', 'negatives.png', 'output file')
@@ -22,21 +30,15 @@ def import_data():
     """
     Returns training and evaluation data sets
     """
-    train_set = input_data.Data(FLAGS.image_size, FLAGS.image_size)
-    for i in xrange(1, 34):
-        train_set.add('../data/training/data/train_' + str(i) + '.csv', '../data/training/train_' + str(i) + '.tif')
-    train_set.finalize()   
-    
-    eval_set = input_data.Data(FLAGS.image_size, FLAGS.image_size)
-    for i in xrange(1, 22):
-        eval_set.add('../data/evaluation/data/eval_' + str(i) + '.csv', '../data/evaluation/eval_' + str(i) + '.tif')
-    eval_set.finalize()     
-    
+    data = input_data.Data(FLAGS.image_size, FLAGS.image_size)
+    for i in xrange(1, 3):
+        data.add('../data/train/data/train_' + str(i) + '.csv', '../data/train/train_' + str(i) + '.tif')
+    data.finalize()   
+
     print '(datasets, positive, negative)'
-    print train_set.info()
-    print eval_set.info()
+    print data.info()
     
-    return train_set, eval_set
+    return data
 
 # ============================================================= #    
 
@@ -61,20 +63,8 @@ def create_img(data, count, label, imgs_per_row):
                 y += FLAGS.image_size
     return img
 
-
-def create_images(data, imgs_per_row, output_dir):
-    _,count_pos,count_neg = data.info()
+# ============================================================= #    
     
-    # positive examples
-    img_pos = create_img(data, count_pos, [0, 1], 100)
-    img_pos = cv2.normalize(img_pos, None, 0, 255, cv2.NORM_MINMAX)
-    cv2.imwrite(output_dir + str(count_pos) + "_" + FLAGS.output_pos, img_pos)
-    
-    # negative examples
-    img_neg = create_img(data, count_neg, [1, 0], 100)
-    img_neg = cv2.normalize(img_neg, None, 0, 255, cv2.NORM_MINMAX)
-    cv2.imwrite(output_dir + str(count_neg) + "_" + FLAGS.output_neg, img_neg)
-
 def main(argv):    
     try:
         argv = FLAGS(argv)
@@ -82,10 +72,18 @@ def main(argv):
         print '%s\\nUsage: %s ARGS\\n%s' % (e, sys.argv[0], FLAGS)
         
     # import data
-    train_set, eval_set = import_data()
+    data = import_data()
+    _,count_pos,count_neg = data.info()
     
-    create_images(train_set, 100, FLAGS.train_out_dir)
-    create_images(eval_set, 100, FLAGS.eval_out_dir)
+     # positive examples
+    img_pos = create_img(data, count_pos, [0, 1], 100)
+    img_pos = cv2.normalize(img_pos, None, 0, 255, cv2.NORM_MINMAX)
+    cv2.imwrite(FLAGS.output_dir + str(count_pos) + "_" + FLAGS.output_pos, img_pos)
+    
+    # negative examples
+    img_neg = create_img(data, count_neg, [1, 0], 100)
+    img_neg = cv2.normalize(img_neg, None, 0, 255, cv2.NORM_MINMAX)
+    cv2.imwrite(FLAGS.output_dir + str(count_neg) + "_" + FLAGS.output_neg, img_neg)
     
 if __name__ == '__main__':
     main(sys.argv)

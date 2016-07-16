@@ -1,3 +1,7 @@
+"""
+implements Data class which handles the training/evaluation examples
+"""
+
 import utils
 import cv2
 import csv
@@ -34,6 +38,18 @@ class Data:
     # ============================================================= #    
     
     def add_from_single_image(self, image_path, example_width, example_height, label, count, imgs_per_row):
+        """
+        imports training examples from a single image
+        image has to consist of all examples next to each other, row by row 
+        
+        Args:
+            image_path: path to image
+            example_width: width of examples in pixels
+            example_height: height of examples in pixels
+            label: labels of imported data (array with size 2)
+            count: number of examples to import
+            imgs_per_row: number of examples per row in the image
+        """
         src_image = utils.getImage(image_path)
         x = 0
         y = 0
@@ -120,6 +136,9 @@ class Data:
     # ============================================================= #
     
     def shuffle(self):
+        """
+        shuffles the data
+        """
         perm = numpy.arange(self.count) 
         numpy.random.shuffle(perm)
         self.images = self.images[perm]
