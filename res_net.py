@@ -1,9 +1,28 @@
 import tensorflow as tf
 import numpy as np
 
+
+# ============================================================= #
+
+def weight_var(shape):
+    weights = tf.get_variable('weights', shape,
+                           initializer = tf.truncated_normal_initializer(stddev=0.1))
+    variable_summaries(weights, 'weights')
+    return weights
+
+# ============================================================= #
+
+def bias_var(shape):
+    biases = tf.get_variable('biases', shape,
+                           initializer = tf.constant_initializer(0.1), trainable=False)
+    variable_summaries(biases, 'biases')
+    return biases
+
+# ============================================================= #
+
 def conv2d(x, ksize, stride, padding, activation, is_training):
-    weights = tf.get_variable('weights', ksize, initializer = tf.truncated_normal_initializer(stddev=0.1))
-    biases = tf.get_variable('biases', ksize[3], initializer = tf.constant_initializer(0.1))
+    weights = weight_var(ksize)
+    biases = bias_var(ksize[3])
         
     x = tf.nn.conv2d(x, weights, stride, padding=padding)
     x = batch_norm(x, is_training)
@@ -11,6 +30,22 @@ def conv2d(x, ksize, stride, padding, activation, is_training):
         return activation(x + biases)
     else:
         return x + biases
+    
+# ============================================================= #
+    
+def variable_summaries(var, name):
+    """Attach a lot of summaries to a Tensor."""
+    name = tf.get_variable_scope().name + '/' + name
+    
+    with tf.name_scope('summaries'):
+      mean = tf.reduce_mean(var)
+      tf.scalar_summary('mean/' + name, mean)
+      with tf.name_scope('stddev'):
+        stddev = tf.sqrt(tf.reduce_sum(tf.square(var - mean)))
+      tf.scalar_summary('sttdev/' + name, stddev)
+      tf.scalar_summary('max/' + name, tf.reduce_max(var))
+      tf.scalar_summary('min/' + name, tf.reduce_min(var))
+      tf.histogram_summary(name, var)
 
 # ============================================================= #
 
@@ -30,8 +65,8 @@ def fc_softmax(x, n_out):
     n_in = shape[1] * shape[2] * shape[3]
     x = tf.reshape(x, [-1, n_in])
                        
-    weights = tf.get_variable('weights', [n_in, n_out], initializer = tf.truncated_normal_initializer(stddev=0.1))
-    biases = tf.get_variable('biases', [n_out], initializer = tf.constant_initializer(0.1))
+    weights = weight_var([n_in, n_out])
+    biases = bias_var([n_out])
     return tf.nn.softmax(tf.matmul(x, weights) + biases)
     
 # ============================================================= #
