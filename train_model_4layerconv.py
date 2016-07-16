@@ -4,35 +4,40 @@ import numpy
 import cv2
 import time
 import tensorflow as tf
-import network_simple as nn
+import 4layer_net as nn
 import csv
 import os
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
 
-flags.DEFINE_integer('image_size', 28, 'width and height of the input images')
+flags.DEFINE_integer('image_size', 64, 'width and height of the input images')
 flags.DEFINE_integer('batch_size', 50, 'training batch size')
-flags.DEFINE_integer('max_steps', 10000, 'number of steps to run trainer')
+flags.DEFINE_integer('max_steps', 100, 'number of steps to run trainer')
 
-flags.DEFINE_string('checkpoint_path','checkpoints/simple_nn_new', 'path to checkpoint')
-flags.DEFINE_string('log_dir','/tmp/object_detection_logs', 'path to log directory')
+flags.DEFINE_string('checkpoint_path','../output/checkpoints/4layer', 'path to checkpoint')
+flags.DEFINE_string('log_dir','../output/log/4layer', 'path to log directory')
 
-sess = tf.InteractiveSession()
+sess = 0
 
 def import_data():
     """
     Returns training and evaluation data sets
     """
     train_set = input_data.Data(FLAGS.image_size, FLAGS.image_size)
-    for i in xrange(1, 5):
-        train_set.add('../data/training/data/train_1.csv', '../data/training/train_1.tif')
-    train_set.finalize()   
+    train_set.add_from_single_image("../data/train/10414_positives.png", FLAGS.image_size, 
+                                    FLAGS.image_size, [0,1], 10414, 100)
+    train_set.add_from_single_image("../data/train/20038_negatives.png", FLAGS.image_size, 
+                                    FLAGS.image_size, [1,0], 20038, 100)
     
     eval_set = input_data.Data(FLAGS.image_size, FLAGS.image_size)
-    for i in xrange(5, 19):
-        eval_set.add('../data/evaluation/data/eval_1.csv', '../data/evaluation/eval_1.tif')
-    eval_set.finalize()     
+    eval_set.add_from_single_image("../data/eval/1510_positives.png", FLAGS.image_size, 
+                                    FLAGS.image_size, [0,1], 1510, 100)
+    
+    eval_set.add_from_single_image("../data/eval/4054_negatives.png", FLAGS.image_size, 
+                                    FLAGS.image_size, [1,0], 4054, 100)
+    train_set.finalize()
+    eval_set.finalize()
     
     print '(datasets, positive, negative)'
     print train_set.info()
@@ -69,7 +74,7 @@ def train_model(model, train_set, eval_set, x, y_, keep_prob):
     with tf.name_scope('train'):
         train_step = nn.train(model, y_)
     
-    tf.initialize_all_variables().run()
+    tf.initialize_all_variables().run(session=sess)
     
     # ---------- restore model ---------------#
     saver = tf.train.Saver()
@@ -77,7 +82,7 @@ def train_model(model, train_set, eval_set, x, y_, keep_prob):
         saver.restore(sess, tf.train.latest_checkpoint(FLAGS.checkpoint_path))  
     
     # ------------- train --------------------#
-    for i in xrange(FLAGS.max_steps):
+    for i in xrange(FLAGS.max_steps + 1):
         # train mini batches
         batch_xs, batch_ys = train_set.next_batch(FLAGS.batch_size)
         feed = {x:batch_xs, y_:batch_ys, keep_prob:0.5}
@@ -95,13 +100,16 @@ def train_model(model, train_set, eval_set, x, y_, keep_prob):
             print 'Accuracy at step %s: %s' % (step, acc)
             
         # save model
-        if step % 1000 == 0 or (i + 1) == FLAGS.max_steps:
+        if step % 100 == 0 or (i + 1) == FLAGS.max_steps:
             saver.save(sess, FLAGS.checkpoint_path + '/model.ckpt', global_step = step)
             
     
 # ============================================================= #    
 
 def main(_):
+    global sess
+    sess = tf.Session(config=tf.ConfigProto(log_device_placement=True))
+    
     # ---------- import data ----------------#
     train_set, eval_set = import_data()
 

@@ -32,7 +32,29 @@ class Data:
         self.labels = self.labels.reshape(self.count, 2)
         
     # ============================================================= #    
+    
+    def add_from_single_image(self, image_path, example_width, example_height, label, count, imgs_per_row):
+        src_image = utils.getImage(image_path)
+        x = 0
+        y = 0
         
+        for i in xrange(count):
+            example = numpy.zeros((example_height, example_width), numpy.float)
+            example = src_image[y : y + example_height, x : x + example_width]
+            
+            # add dataset
+            self.images = numpy.append(self.images, example)
+            self.labels = numpy.append(self.labels, label)
+            self.count = self.count + 1
+            
+            x += example_width
+            if x >= imgs_per_row * example_width:
+                x = 0
+                y += example_height
+        del src_image
+    
+    # ============================================================= #    
+    
     def get_image_with_border(self, data_path, image_path):
         """
         returns the image with a border around the image
@@ -82,18 +104,26 @@ class Data:
             # get label
             label = numpy.array([0,1]) if int(row[3]) == 1 else numpy.array([1,0])
             
-            # get subimage
-            sub_image = utils.getSubImage(src_image, pos_x, pos_y, (diameter, diameter))
-            sub_image = utils.scaleImage(sub_image, self.img_size)
+            # get example
+            example = utils.getSubImage(src_image, pos_x, pos_y, (diameter, diameter))
+            example = utils.scaleImage(example, self.img_size)
             
             # add dataset
-            self.images = numpy.append(self.images, sub_image)
+            self.images = numpy.append(self.images, example)
             self.labels = numpy.append(self.labels, label)
             self.count = self.count + 1
         
         # free memory
         del src_image
         csv_file.close()
+        
+    # ============================================================= #
+    
+    def shuffle(self):
+        perm = numpy.arange(self.count) 
+        numpy.random.shuffle(perm)
+        self.images = self.images[perm]
+        self.labels = self.labels[perm]
         
     # ============================================================= #    
                 
@@ -105,22 +135,17 @@ class Data:
             returns the next batch of examples (input,labels)
             shuffles the examples at the end of an epoch (all examples returned)
         """
-        
         start = self.index_in_epoch
         self.index_in_epoch += batch_size
         
         if self.index_in_epoch > self.count:
             # shuffle data
-            perm = numpy.arange(self.count) 
-            numpy.random.shuffle(perm)
-            self.images = self.images[perm]
-            self.labels = self.labels[perm]
+            self.shuffle()
             # start next epoch
             start = 0
             self.index_in_epoch = batch_size
             
         end = self.index_in_epoch
-                
         return (self.images[start:end], self.labels[start:end])
     
     # ============================================================= #    
