@@ -11,12 +11,12 @@ import os
 flags = tf.app.flags
 FLAGS = flags.FLAGS
 
-flags.DEFINE_integer('image_size', 28, 'width and height of the input images')
+flags.DEFINE_integer('image_size', 64, 'width and height of the input images')
 flags.DEFINE_integer('batch_size', 50, 'training batch size')
-flags.DEFINE_integer('max_steps', 10000, 'number of steps to run trainer')
+flags.DEFINE_integer('max_steps', 200, 'number of steps to run trainer')
 
-flags.DEFINE_string('checkpoint_path','checkpoints/res_net', 'path to checkpoint')
-flags.DEFINE_string('log_dir','/tmp/object_detection_logs', 'path to log directory')
+flags.DEFINE_string('checkpoint_path','../output/checkpoints/resnet', 'path to checkpoint')
+flags.DEFINE_string('log_dir','../output/log/resnet', 'path to log directory')
 
 sess = tf.InteractiveSession()
 
@@ -25,14 +25,19 @@ def import_data():
     Returns training and evaluation data sets
     """
     train_set = input_data.Data(FLAGS.image_size, FLAGS.image_size)
-    for i in xrange(1, 5):
-        train_set.add('../data/training/data/train_1.csv', '../data/training/train_1.tif')
-    train_set.finalize()   
+    train_set.add_from_single_image("../data/train/10414_positives.png", FLAGS.image_size, 
+                                    FLAGS.image_size, [0,1], 10414, 100)
+    train_set.add_from_single_image("../data/train/20038_negatives.png", FLAGS.image_size, 
+                                    FLAGS.image_size, [1,0], 20038, 100)
     
     eval_set = input_data.Data(FLAGS.image_size, FLAGS.image_size)
-    for i in xrange(5, 19):
-        eval_set.add('../data/evaluation/data/eval_1.csv', '../data/evaluation/eval_1.tif')
-    eval_set.finalize()     
+    eval_set.add_from_single_image("../data/eval/1510_positives.png", FLAGS.image_size, 
+                                    FLAGS.image_size, [0,1], 1510, 100)
+    
+    eval_set.add_from_single_image("../data/eval/4054_negatives.png", FLAGS.image_size, 
+                                    FLAGS.image_size, [1,0], 4054, 100)
+    train_set.finalize()
+    eval_set.finalize()
     
     print '(datasets, positive, negative)'
     print train_set.info()
@@ -58,7 +63,7 @@ def train_model(model, train_set, eval_set, x, y_, is_training):
     with tf.name_scope('test'):
         correct_prediction = tf.equal(tf.argmax(y_, 1), tf.argmax(model, 1))
         accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-        _ = tf.scalar_summary('accuracy', accuracy)
+        tf.scalar_summary('accuracy', accuracy)
     
     # merge summaries and write them to /tmp/crater_logs
     merged_summary = tf.merge_all_summaries()
