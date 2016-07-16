@@ -4,7 +4,7 @@ import numpy as np
 import cv2
 import time
 import tensorflow as tf
-import network_simple as nn
+import model_4layerconv as nn
 import csv
 import os
 import datetime
@@ -24,11 +24,10 @@ flags.DEFINE_integer('step_size', 10, 'sliding window step size')
 flags.DEFINE_integer('tol', 25, 'tolerance')
 flags.DEFINE_float('delta', 0.01, 'detection tolerance delta')
 
-flags.DEFINE_string('checkpoint_dir','checkpoints/simple_nn', 'path to checkpoint dir')
-flags.DEFINE_string('candidate_dir','candidates/', 'path to checkpoint dir')
-flags.DEFINE_string('ground_truth_dir','../data/evaluation/data/', 'path to ground truth data dir')
-flags.DEFINE_string('input_dir','../data/evaluation/', 'path to input images')
-flags.DEFINE_string('output_dir','output/', 'path to output dir')
+flags.DEFINE_string('checkpoint_dir','../output/checkpoints/4layer', 'path to checkpoint dir')
+flags.DEFINE_string('ground_truth_dir','../data/eval/data/', 'path to ground truth data dir')
+flags.DEFINE_string('input_dir','../data/eval/', 'path to input images')
+flags.DEFINE_string('output_dir','../output/results/4layer/', 'path to output dir')
 
 # start session
 sess = tf.InteractiveSession()
@@ -88,58 +87,6 @@ def sliding_window_detection(model, x, keep_prob, src):
     return objects
 
 
-# ============================================================= #
-
-
-def candidate_detection(model, x, keep_prob, src, candidates):
-    """
-    object detection via external candidate file
-    Args:
-        model: model which is used for detection
-        x: input data placeholder
-        keep_prob: keep probability placeholder
-        src: source image
-        candidates: list of candidates [(x,y,radius)]
-    Returns
-        list of found objects [(x,y,radius)]
-    """
-    # find max diameter
-    x_border = 0
-    y_border = 0
-    for c in candidates:
-        diameter = int(c[2] * 2)
-        if diameter > x_border:
-            x_border = diameter
-        if diameter > y_border:
-            y_border = diameter
-        
-    x_border = x_border / 2
-    y_border = y_border / 2
-    
-    # add padding to image
-    src = cv2.copyMakeBorder(src, x_border, y_border, x_border, y_border, cv2.BORDER_REPLICATE)
-    
-    images = []
-    for c in candidates:
-        x_pos = x_border + c[0]
-        y_pos = y_border + c[1]
-        diameter = int(c[2] * 2)
-        sub_image = utils.getSubImage(src, x_pos, y_pos, (diameter, diameter))
-        sub_image = utils.scaleImage(sub_image, (FLAGS.image_size, FLAGS.image_size))
-        images.append(sub_image)
-        
-    images = np.array(images).reshape(len(candidates), FLAGS.image_size * FLAGS.image_size)
-    feed = {x:images, keep_prob:1.0}
-    y = sess.run(model, feed_dict = feed)
-    
-    objects = []
-    for i in range(0, len(y)):
-        if y[i][0] < FLAGS.delta and y[i][1] > (1.0 - FLAGS.delta):
-            objects.append(candidates[i])
-    
-    return objects
-    
-    
 # ============================================================= #
     
 def evaluate(truth, detected):
