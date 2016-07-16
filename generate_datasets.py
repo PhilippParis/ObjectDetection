@@ -8,8 +8,8 @@ import csv
 
 FLAGS =  gflags.FLAGS
 
-gflags.DEFINE_string('input_file','../data/training/train_1_marked.tif', 'path to input file')
-gflags.DEFINE_string('output_file','../data/training/data/test_1.csv', 'output file')
+gflags.DEFINE_string('input_file','../data/training/train_12_marked.tif', 'path to input file')
+gflags.DEFINE_string('output_file','../data/training/data/test_12.csv', 'output file')
 gflags.DEFINE_integer('rad', 64, 'radius of objects')
 
 def findObjects(mask):
