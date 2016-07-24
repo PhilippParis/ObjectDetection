@@ -55,8 +55,10 @@ class Data:
         y = 0
         
         for i in xrange(count):
-            example = numpy.zeros((example_height, example_width), numpy.float)
             example = src_image[y : y + example_height, x : x + example_width]
+            
+            if example_height != self.img_size[1] or example_width != self.img_size[0]:
+                example = utils.scaleImage(example, self.img_size)
             
             # add dataset
             self.images = numpy.append(self.images, example)

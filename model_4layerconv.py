@@ -5,6 +5,9 @@ https://github.com/tensorflow/tensorflow/blob/r0.7/tensorflow/examples/tutorials
 
 import tensorflow as tf
 
+flags = tf.app.flags
+FLAGS = flags.FLAGS
+
 # ----------------- HELPERS ----------------- #
 
 def conv2d(x, W):
@@ -35,20 +38,20 @@ def create_network(network_input, keep_prob, image_size):
     
     # - Layer 1 - #
     with tf.variable_scope('conv1') as scope:
-        weights = weight_var([5, 5, 1, 32])
+        weights = weight_var([3, 3, 1, 32])
         biases = bias_var([32])
         
-        #_ = tf.histogram_summary("weights1", weights)
+        tf.histogram_summary("weights1", weights)
         conv = tf.nn.relu(conv2d(input_reshaped, weights) + biases)
         output_layer_1 = max_pool_2x2(conv)
         
         
     # - Layer 2 - #
     with tf.variable_scope('conv2') as scope:
-        weights = weight_var([5, 5, 32, 64])
+        weights = weight_var([3, 3, 32, 64])
         biases = bias_var([64])
         
-        #_ = tf.histogram_summary("weights2", weights)
+        tf.histogram_summary("weights2", weights)
         conv = tf.nn.relu(conv2d(output_layer_1, weights) + biases)
         output_layer_2 = max_pool_2x2(conv)
         
@@ -59,7 +62,7 @@ def create_network(network_input, keep_prob, image_size):
         weights = weight_var([size * size * 64, 1024])
         biases = bias_var([1024])
         
-        #_ = tf.histogram_summary("weights3", weights)
+        tf.histogram_summary("weights3", weights)
         output_layer_2_flat = tf.reshape(output_layer_2, [-1, size * size * 64])
         output_layer_3 = tf.nn.relu(tf.matmul(output_layer_2_flat, weights) + biases)
         
@@ -72,9 +75,9 @@ def create_network(network_input, keep_prob, image_size):
         weights = weight_var([1024, 2])
         biases = bias_var([2])
         
-        #_ = tf.histogram_summary("weights4", weights)
+        tf.histogram_summary("weights4", weights)
         output = tf.nn.softmax(tf.matmul(output_layer_3_drop, weights) + biases)
-        _ = tf.histogram_summary("network-output", output)
+        tf.histogram_summary("network-output", output)
         return output
 
 
@@ -83,6 +86,6 @@ def create_network(network_input, keep_prob, image_size):
 def train(network_output, desired_output):
     with tf.name_scope('xent'):
         cross_entropy = -tf.reduce_sum(desired_output * tf.log(network_output))
-        _ = tf.scalar_summary('cross entropy', cross_entropy)
+        tf.scalar_summary('cross entropy', cross_entropy)
         
-    return tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
+    return tf.train.AdamOptimizer(FLAGS.learning_rate).minimize(cross_entropy)

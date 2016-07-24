@@ -3,6 +3,10 @@ import cv2
 import numpy
 import csv
 
+def print_to_file(path, txt):
+    with open(path, 'a') as file:
+        file.write(txt + '\n')
+
 def getImage(path):
     """
     Args: 
@@ -29,7 +33,6 @@ def getSubImage(image, x, y, size):
     height = (size[1] + 1) / 2
         
     return image[y - height : y + height, x - width : x + width]
-
 
 
 def scaleImage(image, size):
