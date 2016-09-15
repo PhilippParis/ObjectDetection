@@ -46,7 +46,7 @@ def import_data():
     train_set.add_from_single_image("../data/train/20038_negatives.png", 64, 64, [1,0], 20038, 100)
     eval_set.add_from_single_image("../data/eval/1510_positives.png", 64, 64, [0,1], 1510, 100)
     eval_set.add_from_single_image("../data/eval/4054_negatives.png", 64, 64, [1,0], 4054, 100)
-    
+
     train_set.finalize()
     eval_set.finalize()
     
@@ -124,6 +124,7 @@ def train_model(model, train_set, eval_set, x, y_, keep_prob):
         # train mini batches
         batch_xs, batch_ys = train_set.next_batch(FLAGS.batch_size)
         feed = {x:batch_xs, y_:batch_ys, keep_prob:FLAGS.dropout}
+        
         sess.run([train_step], feed_dict = feed)
         
         # increment global step count
@@ -131,7 +132,7 @@ def train_model(model, train_set, eval_set, x, y_, keep_prob):
         step = tf.train.global_step(sess, global_step)
         
         # write summary 
-        if step % 500 == 0:
+        if step % 100 == 0:
             summary_str = sess.run(merged_summary, feed_dict = feed)
             writer.add_summary(summary_str, step)
             writer.flush()
@@ -141,7 +142,7 @@ def train_model(model, train_set, eval_set, x, y_, keep_prob):
             evaluation(step, eval_set, eval_correct, x, y_, keep_prob)
             
         # save model
-        if step % 5000 == 0 or (i + 1) == FLAGS.max_steps:
+        if step % 5000 == 0 or i == FLAGS.max_steps:
             saver.save(sess, FLAGS.checkpoint_path + '/model.ckpt', global_step = step)
             
     

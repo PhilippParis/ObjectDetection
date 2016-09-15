@@ -13,7 +13,7 @@ usage:
 import utils
 import input_data
 import numpy
-import res_net
+import model_resnet as nn
 import cv2
 import time
 import tensorflow as tf
@@ -24,11 +24,14 @@ flags = tf.app.flags
 FLAGS = flags.FLAGS
 
 flags.DEFINE_integer('image_size', 64, 'width and height of the input images')
-flags.DEFINE_integer('batch_size', 50, 'training batch size')
+flags.DEFINE_integer('batch_size', 256, 'training batch size')
 flags.DEFINE_integer('max_steps', 200, 'number of steps to run trainer')
+flags.DEFINE_float('learning_rate', 1e-6, 'Initial learning rate.')
+flags.DEFINE_bool('use_bias', False, 'if true uses biases, if false uses batch normalization')
 
 flags.DEFINE_string('checkpoint_path','../output/checkpoints/resnet', 'path to checkpoint')
 flags.DEFINE_string('log_dir','../output/log/resnet', 'path to log directory')
+flags.DEFINE_string('output_file','../output/results/resnet/train.csv', 'path to log directory')
 
 sess = tf.InteractiveSession()
 
@@ -37,25 +40,42 @@ def import_data():
     Returns training and evaluation data sets
     """
     train_set = input_data.Data(FLAGS.image_size, FLAGS.image_size)
-    train_set.add_from_single_image("../data/train/10414_positives.png", FLAGS.image_size, 
-                                    FLAGS.image_size, [0,1], 10414, 100)
-    train_set.add_from_single_image("../data/train/20038_negatives.png", FLAGS.image_size, 
-                                    FLAGS.image_size, [1,0], 20038, 100)
-    
     eval_set = input_data.Data(FLAGS.image_size, FLAGS.image_size)
-    eval_set.add_from_single_image("../data/eval/1510_positives.png", FLAGS.image_size, 
-                                    FLAGS.image_size, [0,1], 1510, 100)
+
+    train_set.add_from_single_image("../data/train/10414_positives.png", 64, 64, [0,1], 10414, 100)
+    train_set.add_from_single_image("../data/train/20038_negatives.png", 64, 64, [1,0], 20038, 100)
+    eval_set.add_from_single_image("../data/eval/1510_positives.png", 64, 64, [0,1], 1510, 100)
+    eval_set.add_from_single_image("../data/eval/4054_negatives.png", 64, 64, [1,0], 4054, 100)
     
-    eval_set.add_from_single_image("../data/eval/4054_negatives.png", FLAGS.image_size, 
-                                    FLAGS.image_size, [1,0], 4054, 100)
     train_set.finalize()
     eval_set.finalize()
     
-    print '(datasets, positive, negative)'
-    print train_set.info()
-    print eval_set.info()
+    t_total, t_pos, t_neg = train_set.info()
+    e_total, e_pos, e_neg = eval_set.info()
     
+    utils.print_to_file(FLAGS.output_file, 'training')
+    utils.print_to_file(FLAGS.output_file, 'total, positive, negative')
+    utils.print_to_file(FLAGS.output_file, str(t_total) + ',' + str(t_pos) + ',' + str(t_neg))
+    
+    utils.print_to_file(FLAGS.output_file, 'evaluation')
+    utils.print_to_file(FLAGS.output_file, 'total, positive, negative')
+    utils.print_to_file(FLAGS.output_file, str(e_total) + ',' + str(e_pos) + ',' + str(e_neg))
+
     return train_set, eval_set
+
+# ============================================================= #
+
+def evaluation(step, data_set, eval_correct, x, y_, is_training):
+    true_count = 0
+    steps = int(data_set.count / FLAGS.batch_size)
+    num_examples = steps * FLAGS.batch_size
+    
+    for i in xrange(steps):
+        batch_xs, batch_ys = data_set.next_batch(FLAGS.batch_size)
+        feed = {x:batch_xs, y_:batch_ys, is_training:False}
+        true_count += sess.run(eval_correct, feed_dict = feed)
+            
+    return float(true_count) / float(num_examples)
 
 # ============================================================= #
 
@@ -74,18 +94,20 @@ def train_model(model, train_set, eval_set, x, y_, is_training):
     global sess
     with tf.name_scope('test'):
         correct_prediction = tf.equal(tf.argmax(y_, 1), tf.argmax(model, 1))
-        accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-        tf.scalar_summary('accuracy', accuracy)
+        eval_correct = tf.reduce_sum(tf.cast(correct_prediction, tf.int32))
+    
+    # training
+    with tf.name_scope('train'):
+        train_step = nn.train(model, y_)
     
     # merge summaries and write them to /tmp/crater_logs
     merged_summary = tf.merge_all_summaries()
     writer = tf.train.SummaryWriter(FLAGS.log_dir, sess.graph)
+    
+    # global steps
     global_step = tf.Variable(0, trainable=False, name='global_step')
     
-    # training
-    with tf.name_scope('train'):
-        train_step = res_net.train(model, y_)
-    
+    # init vars
     tf.initialize_all_variables().run()
     
     # ---------- restore model ---------------#
@@ -93,8 +115,11 @@ def train_model(model, train_set, eval_set, x, y_, is_training):
     if tf.train.latest_checkpoint(FLAGS.checkpoint_path) != None:
         saver.restore(sess, tf.train.latest_checkpoint(FLAGS.checkpoint_path))  
     
+    
+    utils.print_to_file(FLAGS.output_file,'step, Num examples, Num correct, Precision')
+    
     # ------------- train --------------------#
-    for i in xrange(FLAGS.max_steps):
+    for i in xrange(FLAGS.max_steps + 1):
         # train mini batches
         batch_xs, batch_ys = train_set.next_batch(FLAGS.batch_size)
         feed = {x:batch_xs, y_:batch_ys, is_training:True}
@@ -104,15 +129,20 @@ def train_model(model, train_set, eval_set, x, y_, is_training):
         sess.run(global_step.assign_add(1))
         step = tf.train.global_step(sess, global_step)
         
-        # validate 
-        if step % 10 == 0:
-            feed = {x:eval_set.images, y_:eval_set.labels, is_training:False}
-            summary_str, acc = sess.run([merged_summary, accuracy], feed_dict = feed)
+        # write summary 
+        if step % 100 == 0:
+            summary_str = sess.run(merged_summary, feed_dict = feed)
             writer.add_summary(summary_str, step)
-            print 'Accuracy at step %s: %s' % (step, acc)
+            writer.flush()
+            
+        # evaluation
+        if step % 100 == 0:
+            test_precision = evaluation(step, eval_set, eval_correct, x, y_, is_training)
+            train_precision = evaluation(step, train_set, eval_correct, x, y_, is_training)
+            utils.print_to_file(FLAGS.output_file,str(step) + ',' + str(test_precision) + ',' + str(train_precision))
             
         # save model
-        if step % 1000 == 0 or (i + 1) == FLAGS.max_steps:
+        if step % 5000 == 0 or i == FLAGS.max_steps:
             saver.save(sess, FLAGS.checkpoint_path + '/model.ckpt', global_step = step)
             
     
@@ -132,13 +162,14 @@ def main(_):
     # is_training indicator placeholder
     is_training = tf.placeholder(tf.bool, name='is_training') 
     
-    model = res_net.create_model(x, 2, is_training)
+    model = nn.create_model(x, 2, is_training)
     
+        
+    utils.print_to_file(FLAGS.output_file,'batch size, learning rate, image size, use_bias')
+    utils.print_to_file(FLAGS.output_file, str(FLAGS.batch_size) + ',' + str(FLAGS.learning_rate) + ',' + str(FLAGS.image_size) + ',' + str(FLAGS.use_bias))
     
     # ---------- train model -----------------#
-    start = time.time()
     train_model(model, train_set, eval_set, x, y_, is_training)
-    print 'training time: %d' % (time.time() - start)
     
 if __name__ == '__main__':
     tf.app.run()

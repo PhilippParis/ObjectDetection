@@ -4,6 +4,7 @@ import numpy
 import csv
 
 def print_to_file(path, txt):
+    print txt
     with open(path, 'a') as file:
         file.write(txt + '\n')
 
@@ -79,7 +80,8 @@ def slidingWindow(image, stepSize, windowSize, outputSize):
             img = getSubImage(image, x + windowSize[0] / 2, y + windowSize[1] / 2, windowSize)
             if img.shape != windowSize:
                 continue
-            img = scaleImage(img, outputSize)
+            if windowSize != outputSize:
+                img = scaleImage(img, outputSize)
             images.append(img)
             coords.append([x + windowSize[0] / 2, y + windowSize[1] / 2])
             count = count + 1

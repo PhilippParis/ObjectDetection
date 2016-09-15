@@ -12,17 +12,15 @@ import datetime
 flags = tf.app.flags
 FLAGS = flags.FLAGS
 
-flags.DEFINE_integer('image_size', 28, 'width and height of the input images')
-flags.DEFINE_string('test', 'eval_14', 'name of the test image')
+flags.DEFINE_integer('image_size', 64, 'width and height of the input images')
+flags.DEFINE_string('test', 'eval_1', 'name of the test image')
 
 flags.DEFINE_boolean('show_ground_truth', True, 'show ground truth data')
-flags.DEFINE_boolean('candidate_detection', False, 'enable candidate detection')
-flags.DEFINE_boolean('sliding_window_detection', True, 'enable sliding_window_detection')
 
-flags.DEFINE_integer('window_size', 50, 'sliding window size')
+flags.DEFINE_integer('window_size', 64, 'sliding window size')
 flags.DEFINE_integer('step_size', 10, 'sliding window step size')
 flags.DEFINE_integer('tol', 25, 'tolerance')
-flags.DEFINE_float('delta', 0.01, 'detection tolerance delta')
+flags.DEFINE_float('delta', 0.1, 'detection tolerance delta')
 
 flags.DEFINE_string('checkpoint_dir','../output/checkpoints/4layer', 'path to checkpoint dir')
 flags.DEFINE_string('ground_truth_dir','../data/eval/data/', 'path to ground truth data dir')
@@ -55,10 +53,13 @@ def sliding_window_detection(model, x, keep_prob, src):
         y = sess.run(model, feed_dict = feed)
 
         for i in range(0, len(y)):
-            if y[i][0] < FLAGS.delta and y[i][1] > (1.0 - FLAGS.delta):
+            if y[i][0] < FLAGS.delta and y[i][1] > (1.0 - FLAGS.delta): 
                 cv2.circle(mask, (coords[i][0], coords[i][1]), 5, (255,255,255), -1)
     
     # image processing
+    
+    cv2.imshow('object mask', cv2.resize(mask, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_CUBIC))   
+    cv2.waitKey(0)
     
     kernel = np.ones((5,5,), np.uint8)
     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
@@ -147,13 +148,7 @@ def main(_):
     start = time.time()
     
     #sliding window detection
-    if FLAGS.sliding_window_detection:
-        detected = sliding_window_detection(model, x, keep_prob, img)
-    
-    # candidate detection
-    if FLAGS.candidate_detection:
-        candidates = utils.csv_to_list(FLAGS.candidate_dir + FLAGS.test + '.csv')
-        detected = candidate_detection(model, x, keep_prob, img, candidates)
+    detected = sliding_window_detection(model, x, keep_prob, img)
     
     print 'detection time: %d' % (time.time() - start)
 
@@ -161,13 +156,18 @@ def main(_):
     ground_truth_data = utils.csv_to_list(FLAGS.ground_truth_dir + FLAGS.test + '.csv', True)
     global_step = tf.train.global_step(sess, global_step)
     tp, fn, fp = evaluate(ground_truth_data, detected)
-    precision = float(tp) / float(tp + fp)
-    recall = float(tp) / float(tp + fn)
+    f1_score = 0.0
+    precision = 0.0
+    recall = 0.0
     
-    if tp != 0:
+    if (tp + fp) != 0:
+        precision = float(tp) / float(tp + fp)
+        
+    if (tp + fn) != 0:    
+        recall = float(tp) / float(tp + fn)
+
+    if (precision + recall) != 0:
         f1_score = 2 * (precision * recall) / (precision + recall)
-    else:
-        f1_score = 0.0
         
     # ----------------output ----------------#
     # image output
@@ -178,14 +178,13 @@ def main(_):
     for c in ground_truth_data:
         cv2.circle(img, (c[0], c[1]), 20, [0,255,0],3)
     
-    output_file = FLAGS.test + '_' + str(global_step) + 'its_' + str(FLAGS.delta) + 'delta_' + \
-        ('cd' if FLAGS.candidate_detection else 'sw_') + str(datetime.datetime.now())
+    output_file = FLAGS.test + '_' + str(global_step) + 'its_' + str(FLAGS.delta) + 'delta_' + str(datetime.datetime.now())
     cv2.imwrite(FLAGS.output_dir + output_file + '.png', img)
     
     # csv output
     with open(FLAGS.output_dir + 'results.csv', 'ab') as file:
         writer = csv.writer(file, delimiter=',')
-        writer.writerow([FLAGS.test, output_file, ('cd' if FLAGS.candidate_detection else 'sw'), 
+        writer.writerow([FLAGS.test, output_file, 
                          str(global_step), str(len(ground_truth_data)), 
                          str(len(detected)), str(FLAGS.delta), str(tp), str(fp), str(fn), 
                          str(precision), str(recall), str(f1_score)])

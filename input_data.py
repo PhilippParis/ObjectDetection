@@ -34,6 +34,7 @@ class Data:
         """
         self.images = self.images.reshape(self.count, self.img_size[0] * self.img_size[1])
         self.labels = self.labels.reshape(self.count, 2)
+        self.shuffle()
         
     # ============================================================= #    
     
@@ -145,6 +146,7 @@ class Data:
         numpy.random.shuffle(perm)
         self.images = self.images[perm]
         self.labels = self.labels[perm]
+        self.index_in_epoch = 0
         
     # ============================================================= #    
                 
@@ -156,20 +158,32 @@ class Data:
             returns the next batch of examples (input,labels)
             shuffles the examples at the end of an epoch (all examples returned)
         """
-        start = self.index_in_epoch
-        self.index_in_epoch += batch_size
-        
-        if self.index_in_epoch > self.count:
-            # shuffle data
+        if (self.index_in_epoch + batch_size) >= self.count:
             self.shuffle()
-            # start next epoch
-            start = 0
-            self.index_in_epoch = batch_size
             
-        end = self.index_in_epoch
+        start = self.index_in_epoch
+        end = start + batch_size - 1
+        self.index_in_epoch = end
+        
         return (self.images[start:end], self.labels[start:end])
     
-    # ============================================================= #    
+    # ============================================================= #   
+    
+    def batches(self, batch_size):
+        steps = int(self.count / batch_size)
+        
+        start = 0
+        end = batch_size
+        for i in xrange(steps):
+            yield (self.images[start:end], self.labels[start:end], batch_size)
+            start += batch_size
+            end += batch_size
+        
+        if start < self.count:
+            yield (self.images[start:self.count], self.labels[start:self.count], self.count - start)
+        
+    
+    # ============================================================= #   
     
     def info(self):
         """
