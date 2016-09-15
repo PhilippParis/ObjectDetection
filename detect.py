@@ -4,7 +4,7 @@ import numpy as np
 import cv2
 import time
 import tensorflow as tf
-import model_4layerconv as nn
+import model as nn
 import csv
 import os
 import datetime
@@ -22,10 +22,10 @@ flags.DEFINE_integer('step_size', 10, 'sliding window step size')
 flags.DEFINE_integer('tol', 25, 'tolerance')
 flags.DEFINE_float('delta', 0.1, 'detection tolerance delta')
 
-flags.DEFINE_string('checkpoint_dir','../output/checkpoints/4layer', 'path to checkpoint dir')
+flags.DEFINE_string('checkpoint_dir','../output/checkpoints/7layer', 'path to checkpoint dir')
 flags.DEFINE_string('ground_truth_dir','../data/eval/data/', 'path to ground truth data dir')
 flags.DEFINE_string('input_dir','../data/eval/', 'path to input images')
-flags.DEFINE_string('output_dir','../output/results/4layer/', 'path to output dir')
+flags.DEFINE_string('output_dir','../output/results/7layer/', 'path to output dir')
 
 # start session
 sess = tf.InteractiveSession()
@@ -53,13 +53,13 @@ def sliding_window_detection(model, x, keep_prob, src):
         y = sess.run(model, feed_dict = feed)
 
         for i in range(0, len(y)):
-            if y[i][0] < FLAGS.delta and y[i][1] > (1.0 - FLAGS.delta): 
+            if y[i][0] < -3.0 and y[i][1] > (3.0 - FLAGS.delta): 
                 cv2.circle(mask, (coords[i][0], coords[i][1]), 5, (255,255,255), -1)
     
     # image processing
     
-    cv2.imshow('object mask', cv2.resize(mask, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_CUBIC))   
-    cv2.waitKey(0)
+    #cv2.imshow('object mask', cv2.resize(mask, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_CUBIC))   
+    #cv2.waitKey(0)
     
     kernel = np.ones((5,5,), np.uint8)
     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
@@ -132,7 +132,7 @@ def main(_):
     global_step = tf.Variable(0, trainable=False, name='global_step')
     
     # use for 'network_simple' model
-    model  = nn.create_network(x, keep_prob, FLAGS.image_size)
+    model  = nn.model(x, keep_prob)
     # use for 'network' model
     #model  = nn.create_network(x)
     

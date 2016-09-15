@@ -33,7 +33,7 @@ class Data:
         finalizes the datasets; must be called after adding all data
         """
         self.images = self.images.reshape(self.count, self.img_size[0] * self.img_size[1])
-        self.labels = self.labels.reshape(self.count, 2)
+        self.labels = self.labels.reshape(self.count)
         self.shuffle()
         
     # ============================================================= #    
@@ -158,7 +158,8 @@ class Data:
             returns the next batch of examples (input,labels)
             shuffles the examples at the end of an epoch (all examples returned)
         """
-        if (self.index_in_epoch + batch_size) >= self.count:
+        
+        if self.index_in_epoch > self.count:
             self.shuffle()
             
         start = self.index_in_epoch
@@ -182,7 +183,6 @@ class Data:
         if start < self.count:
             yield (self.images[start:self.count], self.labels[start:self.count], self.count - start)
         
-    
     # ============================================================= #   
     
     def info(self):
@@ -190,9 +190,9 @@ class Data:
         Returns:
             (count, number of positive datasets, number of negative datasets)
         """
-        positive = numpy.sum(numpy.equal([0,1], self.labels).astype(int))
-        negative = numpy.sum(numpy.equal([1,0], self.labels).astype(int))
+        positive = numpy.sum(numpy.equal(1, self.labels).astype(int))
+        negative = numpy.sum(numpy.equal(0, self.labels).astype(int))
         
-        return self.count, positive / 2, negative / 2
+        return self.count, positive, negative
                 
     
