@@ -25,7 +25,7 @@ def max_pool(x):
 # ============================================================= #
 
 def weight_var(shape, wd):
-    weights = tf.get_variable('weights', shape, initializer = tf.truncated_normal_initializer(stddev=0.001))
+    weights = tf.get_variable('weights', shape, initializer = tf.truncated_normal_initializer(stddev=0.1))
     variable_summaries(weights, 'weights')
     
     if wd != 0.0:
@@ -61,7 +61,7 @@ def variable_summaries(var, name):
 
 # ----------------- NETWORK ----------------- #
 
-def model(network_input, keep_prob):
+def create(network_input, keep_prob):
     """
     Builds the convolutional network model (2x conv, 2x fully connected with dropout)
     
@@ -72,93 +72,78 @@ def model(network_input, keep_prob):
     
     # - Layer 1 - #
     with tf.variable_scope('conv1') as scope:
-        conv1 = conv2d(input_reshaped, [5, 5, 1, 64], [1, 2, 2, 1])
+        conv1 = conv2d(input_reshaped, [7, 7, 1, 48], [1, 2, 2, 1])
         norm1 = tf.nn.lrn(conv1, 3, bias=2.0, alpha=0.0001, beta=0.75, name='norm1')
         pool1 = max_pool(norm1)
+        # output size 32 x 32 x 48
         
     # - Layer 2 - #
     with tf.variable_scope('conv2') as scope:
-        conv2 = conv2d(pool1, [3, 3, 64, 128], [1, 2, 2, 1])
-        norm2 = tf.nn.lrn(conv2, 3, bias=2.0, alpha=0.0001, beta=0.75, name='norm1')
+        conv2 = conv2d(pool1, [5, 5, 48, 128], [1, 1, 1, 1])
+        norm2 = tf.nn.lrn(conv2, 3, bias=2.0, alpha=0.0001, beta=0.75, name='norm2')
         pool2 = max_pool(norm2)
+        # output size 16 x 16 x 128
         
     # - Layer 3 - #
+    with tf.variable_scope('conv3') as scope:
+        conv3 = conv2d(pool2, [3, 3, 128, 192], [1, 1, 1, 1])
+        # output size 16 x 16 x 192
+        
+    # - Layer 4 - #
+    with tf.variable_scope('conv4') as scope:
+        conv4 = conv2d(conv3, [3, 3, 192, 192], [1, 1, 1, 1])
+        # output size 16 x 16 x 192
+        
+    # - Layer 5 - #
+    with tf.variable_scope('conv5') as scope:
+        conv5 = conv2d(conv4, [3, 3, 192, 128], [1, 1, 1, 1])
+        pool5 = max_pool(conv5)
+        # output size 8 x 8 x 128
+        
+    # - Layer 6 - #
     with tf.variable_scope('local1') as scope:
-        weights = weight_var([2048, 1024], 0.004)
-        biases = bias_var([1024])
+        weights = weight_var([8 * 8 * 128, 2048], 0.004)
+        biases = bias_var([2048])
         
-        pool2_flat = tf.reshape(pool2, [-1, 2048])
-        local1 = tf.nn.relu(tf.matmul(pool2_flat, weights) + biases)
-        drop1 = tf.nn.dropout(local1, keep_prob)
-        
-    #- layer 4 -#
+        pool5_flat = tf.reshape(pool5, [-1, 8 * 8 * 128])
+        local6 = tf.nn.relu(tf.matmul(pool5_flat, weights) + biases)
+        drop6 = tf.nn.dropout(local6, keep_prob)
+     
+    #- layer 7 -#
     with tf.variable_scope('local2') as scope:
-        weights = weight_var([1024, 256], 0.004)
-        biases = bias_var([256])
+        weights = weight_var([2048, 2048], 0.004)
+        biases = bias_var([2048])
         
-        local2 = tf.nn.relu(tf.matmul(drop1, weights) + biases)
-        drop2 = tf.nn.dropout(local2, keep_prob)
+        local7 = tf.nn.relu(tf.matmul(drop6, weights) + biases)
+        drop7 = tf.nn.dropout(local7, keep_prob)
+        return drop7
     
-    #- layer 5 -#
-    with tf.variable_scope('softmax') as scope:
-        weights = weight_var([256, 2], 0.0)
-        biases = bias_var([2])
-        
-        softmax_linear = tf.add(tf.matmul(drop2, weights), biases)
-        variable_summaries(softmax_linear, 'network-output')
-        return softmax_linear
+    
+# ----------------- SAVE / RESTORE  ----------------- #
 
-
-# ----------------- TRAINING ----------------- #
-def loss(logits, labels):
-    """
-    Add L2Loss to all the trainable variables.
-    Args:
-        logits: Logits from model().
-        labels: dataset labels. 1-D tensor of shape [batch_size]
-    Returns:
-        Loss tensor of type float.
-    """
+def weights_saver():
+    with tf.variable_scope("conv1", reuse=True):
+        conv1_weights = tf.get_variable("weights")
+        conv1_biases = tf.get_variable("biases")
+    with tf.variable_scope("conv2", reuse=True):
+        conv2_weights = tf.get_variable("weights")
+        conv2_biases = tf.get_variable("biases")
+    with tf.variable_scope("conv3", reuse=True):
+        conv3_weights = tf.get_variable("weights")
+        conv3_biases = tf.get_variable("biases")
+    with tf.variable_scope("conv4", reuse=True):
+        conv4_weights = tf.get_variable("weights")
+        conv4_biases = tf.get_variable("biases")
+    with tf.variable_scope("conv5", reuse=True):
+        conv5_weights = tf.get_variable("weights")
+        conv5_biases = tf.get_variable("biases")
+    with tf.variable_scope("local1", reuse=True):
+        local1_weights = tf.get_variable("weights")
+        local1_biases = tf.get_variable("biases")
+    with tf.variable_scope("local2", reuse=True):
+        local2_weights = tf.get_variable("weights")
+        local2_biases = tf.get_variable("biases")
     
-    # Calculate the average cross entropy loss across the batch.
-    labels = tf.cast(labels, tf.int64)
-    cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits, labels, name='cross_entropy_per_example')
-    cross_entropy_mean = tf.reduce_mean(cross_entropy, name='cross_entropy')
-    tf.scalar_summary('cross entropy', cross_entropy_mean)
-    tf.add_to_collection('losses', cross_entropy_mean)
-
-    # The total loss is defined as the cross entropy loss plus all of the weight
-    # decay terms (L2 loss).
-    return tf.add_n(tf.get_collection('losses'), name='total_loss')
-
-
-def train(total_loss, global_step):
-    """
-    Create an optimizer and apply to all trainable variables. Add moving
-    average for all trainable variables.
-    Args:
-        total_loss: Total loss from loss().
-        global_step: Integer Variable counting the number of training steps processed.
-    Returns:
-        train_op: op for training.
-    """
+    return tf.train.Saver([conv1_weights, conv2_weights, conv3_weights, conv4_weights, conv5_weights, local1_weights, local2_weights,
+                           conv1_biases, conv2_biases, conv3_biases, conv4_biases, conv5_biases, local1_biases, local2_biases])
     
-    # Compute the moving average of all individual losses and the total loss.
-    loss_averages = tf.train.ExponentialMovingAverage(0.9, name='avg')
-    losses = tf.get_collection('losses')
-    loss_averages_op = loss_averages.apply(losses + [total_loss])
-    
-    with tf.control_dependencies([loss_averages_op]):
-        opt = tf.train.AdamOptimizer(FLAGS.learning_rate)
-        grads = opt.compute_gradients(total_loss)
-        
-    apply_gradient_op = opt.apply_gradients(grads, global_step=global_step)
-    
-    # Track the moving averages of all trainable variables.
-    variable_averages = tf.train.ExponentialMovingAverage(0.9999, global_step)
-    variables_averages_op = variable_averages.apply(tf.trainable_variables())
-    
-    with tf.control_dependencies([apply_gradient_op, variables_averages_op]):
-        train_op = tf.no_op(name='train')
-        
-    return train_op

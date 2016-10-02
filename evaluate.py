@@ -4,7 +4,7 @@ import numpy as np
 import cv2
 import time
 import tensorflow as tf
-import model as nn
+import localizer as nn
 import csv
 import os
 import datetime
@@ -12,20 +12,20 @@ import datetime
 flags = tf.app.flags
 FLAGS = flags.FLAGS
 
-flags.DEFINE_integer('image_size', 64, 'width and height of the input images')
+flags.DEFINE_integer('image_size', 128, 'width and height of the input images')
+flags.DEFINE_integer('label_size', 32, 'width and height of the input images')
 flags.DEFINE_string('test', 'eval_1', 'name of the test image')
 
 flags.DEFINE_boolean('show_ground_truth', True, 'show ground truth data')
 
-flags.DEFINE_integer('window_size', 64, 'sliding window size')
-flags.DEFINE_integer('step_size', 10, 'sliding window step size')
+flags.DEFINE_integer('step_size', 8, 'sliding window step size')
 flags.DEFINE_integer('tol', 25, 'tolerance')
 flags.DEFINE_float('delta', 0.1, 'detection tolerance delta')
 
-flags.DEFINE_string('checkpoint_dir','../output/checkpoints/7layer', 'path to checkpoint dir')
+flags.DEFINE_string('checkpoint_dir','../output/checkpoints/localizer', 'path to checkpoint dir')
 flags.DEFINE_string('ground_truth_dir','../data/eval/data/', 'path to ground truth data dir')
 flags.DEFINE_string('input_dir','../data/eval/', 'path to input images')
-flags.DEFINE_string('output_dir','../output/results/7layer/', 'path to output dir')
+flags.DEFINE_string('output_dir','../output/results/localizer/', 'path to output dir')
 
 # start session
 sess = tf.InteractiveSession()
@@ -44,38 +44,44 @@ def sliding_window_detection(model, x, keep_prob, src):
     """
     global sess
     height, width = src.shape
-    mask = np.zeros((height,width,1), np.uint8)
-    w_size = (FLAGS.window_size, FLAGS.window_size)
-    i_size = (FLAGS.image_size, FLAGS.image_size)
+    mask = np.zeros((height,width), np.float32)
+    w_size = (FLAGS.image_size, FLAGS.image_size)
     
-    for windows, coords in utils.slidingWindow(src, FLAGS.step_size, w_size, i_size):
+    for windows, coords in utils.slidingWindow(src, FLAGS.step_size, w_size):
         feed = {x:windows, keep_prob:1.0}
-        y = sess.run(model, feed_dict = feed)
+        out = sess.run(model, feed_dict = feed)
 
-        for i in range(0, len(y)):
-            if y[i][0] < -3.0 and y[i][1] > (3.0 - FLAGS.delta): 
-                cv2.circle(mask, (coords[i][0], coords[i][1]), 5, (255,255,255), -1)
+
+        for i in range(0, len(out)):
+            xc = coords[i][0] - w_size[0] / 2
+            yc = coords[i][1] - w_size[1] / 2
+            
+            out_scaled = cv2.resize(np.reshape(out[i], [32,32]), None, fx=4.0, fy=4.0, interpolation=cv2.INTER_CUBIC)
+            mask[yc : yc + w_size[1], xc : xc + w_size[0]] += out_scaled
     
     # image processing
     
-    #cv2.imshow('object mask', cv2.resize(mask, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_CUBIC))   
-    #cv2.waitKey(0)
+    mask = cv2.normalize(mask, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
     
-    kernel = np.ones((5,5,), np.uint8)
-    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+    cv2.imwrite(FLAGS.output_dir + 'mask.png', mask)
+    cv2.imshow('object mask', cv2.resize(mask, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_CUBIC))   
+    cv2.waitKey(0)
+    
+    # kernel = np.ones((5,5,), np.uint8)
+    # mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
     
     params = cv2.SimpleBlobDetector_Params()
-    params.minThreshold = 100
+    params.minThreshold = 80
     params.maxThreshold = 255
     
     params.filterByArea = True
-    params.minArea = 200
+    params.minArea = 150
     params.maxArea = 10000
     
     params.filterByCircularity = False
     params.filterByInertia = False
     params.filterByConvexity = False
-    params.filterByColor = True
+    params.filterByColor = False
     params.blobColor = 255
 
     detector = cv2.SimpleBlobDetector_create(params)
@@ -85,6 +91,10 @@ def sliding_window_detection(model, x, keep_prob, src):
     for k in keypoints:
         objects.append((int(k.pt[0]), int(k.pt[1])))
     
+    '''
+    objects = cv2.HoughCircles(mask,cv2.HOUGH_GRADIENT,1,20, param1=50,param2=30,minRadius=20,maxRadius=100)
+    objects = np.uint16(np.around(objects))
+    '''
     return objects
 
 
@@ -132,7 +142,7 @@ def main(_):
     global_step = tf.Variable(0, trainable=False, name='global_step')
     
     # use for 'network_simple' model
-    model  = nn.model(x, keep_prob)
+    model  = nn.create(x, keep_prob)
     # use for 'network' model
     #model  = nn.create_network(x)
     
@@ -145,6 +155,8 @@ def main(_):
     print 'starting detection of ' + FLAGS.test + '...'
     
     img = utils.getImage(FLAGS.input_dir + FLAGS.test + '.tif')
+    img = cv2.copyMakeBorder(img, FLAGS.image_size, FLAGS.image_size, FLAGS.image_size, FLAGS.image_size, cv2.BORDER_REPLICATE) 
+    
     start = time.time()
     
     #sliding window detection
@@ -154,6 +166,8 @@ def main(_):
 
     # ------------- evaluation --------------#
     ground_truth_data = utils.csv_to_list(FLAGS.ground_truth_dir + FLAGS.test + '.csv', True)
+    ground_truth_data = [(x + FLAGS.image_size,y + FLAGS.image_size,rad) for (x,y,rad) in ground_truth_data]
+    
     global_step = tf.train.global_step(sess, global_step)
     tp, fn, fp = evaluate(ground_truth_data, detected)
     f1_score = 0.0
@@ -173,10 +187,10 @@ def main(_):
     # image output
     img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB) * 255
     for c in detected:
-        cv2.circle(img, (c[0], c[1]), 25, [0,0,255],3)
+        cv2.circle(img, (c[0], c[1]), 25, [0,255,0],3)
         
     for c in ground_truth_data:
-        cv2.circle(img, (c[0], c[1]), 20, [0,255,0],3)
+        cv2.circle(img, (c[0], c[1]), 3, [0,0,255],3)
     
     output_file = FLAGS.test + '_' + str(global_step) + 'its_' + str(FLAGS.delta) + 'delta_' + str(datetime.datetime.now())
     cv2.imwrite(FLAGS.output_dir + output_file + '.png', img)

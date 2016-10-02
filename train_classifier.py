@@ -16,22 +16,23 @@ import numpy
 import cv2
 import time
 import tensorflow as tf
-import model as nn
+import classifier as classifier
 import csv
 import os
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
 
-flags.DEFINE_integer('image_size', 64, 'width and height of the input images')
+flags.DEFINE_integer('image_size', 128, 'width and height of the input images')
+
 flags.DEFINE_integer('batch_size', 128, 'training batch size')
-flags.DEFINE_integer('max_steps', 3000, 'number of steps to run trainer')
-flags.DEFINE_float('learning_rate', 0.001, 'Initial learning rate.')
+flags.DEFINE_integer('max_steps', 200, 'number of steps to run trainer')
+flags.DEFINE_float('learning_rate', 0.00001, 'Initial learning rate.')
 flags.DEFINE_float('dropout', 0.75, 'Keep probability for training dropout.')
 
-flags.DEFINE_string('checkpoint_path','../output/checkpoints/7layer', 'path to checkpoint')
-flags.DEFINE_string('log_dir','../output/log/7layer', 'path to log directory')
-flags.DEFINE_string('output_file','../output/results/7layer/train.csv', 'path to log directory')
+flags.DEFINE_string('checkpoint_path','../output/checkpoints/classifier', 'path to checkpoint')
+flags.DEFINE_string('log_dir','../output/log/classifier', 'path to log directory')
+flags.DEFINE_string('output_file','../output/results/classifier/train.csv', 'path to log directory')
 
 sess = 0
 
@@ -39,27 +40,20 @@ def import_data():
     """
     Returns training and evaluation data sets
     """
-    train_set = input_data.Data(FLAGS.image_size, FLAGS.image_size)
-    eval_set = input_data.Data(FLAGS.image_size, FLAGS.image_size)
+    train_set = input_data.Data((FLAGS.image_size, FLAGS.image_size), (1,1))
+    eval_set = input_data.Data((FLAGS.image_size, FLAGS.image_size), (1,1))
 
-    train_set.add_from_single_image("../data/train/10414_positives.png", 64, 64, 1, 10414, 100)
-    train_set.add_from_single_image("../data/train/20038_negatives.png", 64, 64, 0, 20038, 100)
-    eval_set.add_from_single_image("../data/eval/1510_positives.png", 64, 64, 1, 1510, 100)
-    eval_set.add_from_single_image("../data/eval/4054_negatives.png", 64, 64, 0, 4054, 100)
+    train_set.add_examples("../data/detect/train/10414_positives.png", 10414, 100, 1)
+    train_set.add_examples("../data/detect/train/20038_negatives.png", 20038, 100, 0)
+    
+    eval_set.add_examples("../data/detect/eval/1510_positives.png", 1510, 100, 1)
+    eval_set.add_examples("../data/detect/eval/4054_negatives.png", 4054, 100, 0)
     
     train_set.finalize()
     eval_set.finalize()
     
-    t_total, t_pos, t_neg = train_set.info()
-    e_total, e_pos, e_neg = eval_set.info()
-    
-    utils.print_to_file(FLAGS.output_file, 'training')
-    utils.print_to_file(FLAGS.output_file, 'total, positive, negative')
-    utils.print_to_file(FLAGS.output_file, str(t_total) + ',' + str(t_pos) + ',' + str(t_neg))
-    
-    utils.print_to_file(FLAGS.output_file, 'evaluation')
-    utils.print_to_file(FLAGS.output_file, 'total, positive, negative')
-    utils.print_to_file(FLAGS.output_file, str(e_total) + ',' + str(e_pos) + ',' + str(e_neg))
+    utils.print_to_file(FLAGS.output_file, 'training: ' + str(train_set.count))
+    utils.print_to_file(FLAGS.output_file, 'evaluation: ' + str(eval_set.count))
 
     return train_set, eval_set
 
@@ -102,13 +96,12 @@ def train_model(model, train_set, eval_set, x, y_, keep_prob):
         
     # training ops
     with tf.name_scope('train'):
-        loss = nn.loss(model, y_)
-        train_step = nn.train(loss, global_step)
+        loss = classifier.loss(model, y_)
+        train_step = classifier.train(loss, global_step)
     
     # summary ops
     merged_summary = tf.merge_all_summaries()
     writer = tf.train.SummaryWriter(FLAGS.log_dir, sess.graph)
-    
     
     # init vars
     tf.initialize_all_variables().run(session=sess)
@@ -134,13 +127,13 @@ def train_model(model, train_set, eval_set, x, y_, keep_prob):
         step = tf.train.global_step(sess, global_step)
         
         # write summary 
-        if step % 500 == 0:
+        if step % 100 == 0:
             summary_str = sess.run(merged_summary, feed_dict = feed)
             writer.add_summary(summary_str, step)
             writer.flush()
             
         # evaluation
-        if step % 500 == 0:
+        if step % 100 == 0:
             test_precision = evaluation(step, eval_set, top_k_op, x, y_, keep_prob)
             train_precision = evaluation(step, train_set, top_k_op, x, y_, keep_prob)
             utils.print_to_file(FLAGS.output_file,str(step) + ',' + str(test_precision) + ',' + str(train_precision))
@@ -169,7 +162,7 @@ def main(_):
     keep_prob   = tf.placeholder("float")
     
     # use for 'network_simple' model
-    model = nn.model(x, keep_prob)
+    model = classifier.create(x, keep_prob)
     
     utils.print_to_file(FLAGS.output_file,'batch size, learning rate, drop out, image size')
     utils.print_to_file(FLAGS.output_file, str(FLAGS.batch_size) + ',' + str(FLAGS.learning_rate) + ',' + str(FLAGS.dropout) + ',' + str(FLAGS.image_size))
