@@ -17,10 +17,10 @@ flags.DEFINE_integer('tol', 25, 'max tolerated distance error between ground tru
 flags.DEFINE_float('scaleFactor', 1.25, 'scale factor used in the multi scale detection')
 flags.DEFINE_integer('minNeighbors', 50, 'minimum number of neighbours needed')
 
-flags.DEFINE_string('cascade_xml','../output/checkpoints/haar2/cascade.xml', 'path to the cascade xml file')
+flags.DEFINE_string('cascade_xml','../output/checkpoints/lbp/cascade.xml', 'path to the cascade xml file')
 flags.DEFINE_string('ground_truth_dir','../data/eval/data/', 'path to ground truth data dir')
 flags.DEFINE_string('input_dir','../data/eval/', 'path to input images')
-flags.DEFINE_string('output_dir','../output/results/haar2/', 'path to output dir')
+flags.DEFINE_string('output_dir','../output/results/lbp/', 'path to output dir')
 
 # ============================================================= #
     
@@ -58,7 +58,7 @@ def main():
     cv2.imwrite(FLAGS.output_dir + output_file + '.png', img_out)
     
     # csv output
-    with open(FLAGS.output_dir + 'results_new.csv', 'ab') as file:
+    with open(FLAGS.output_dir + 'results.csv', 'ab') as file:
         writer = csv.writer(file, delimiter=',')
         writer.writerow([FLAGS.test, "-", str(elapsed),str(len(ground_truth_data)), str(FLAGS.scaleFactor), str(FLAGS.minNeighbors), 
                          str(len(detected)), str(tp), str(fp), str(fn), str(pr), str(re), str(f1)])

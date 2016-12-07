@@ -106,7 +106,19 @@ def slidingWindow(image, stepSize, windowSize, imgSize):
         yield numpy.array(images).reshape([count, imgSize[0] * imgSize[1]]), numpy.array(coords).reshape([count, 2])
 
 # ============================================================= #
+        
+def contains(objects, x, y, tol):
+    """
+    return the index if the (x,y) exists in objects with tolerance tol
+    otherwise returns -1
+    """
+    for i in xrange(len(objects)):
+            if abs(x - objects[i][0]) < tol and abs(y - objects[i][1]) < tol:
+                return i
+    return -1
     
+# ============================================================= #        
+        
 def evaluate(truth, detected, tol):
     """
     evaluates the quality of the detection
@@ -114,7 +126,7 @@ def evaluate(truth, detected, tol):
         truth: list of ground truth objects center points
         detected: list of detected objects center points
     Returns:
-        true positive count, false_negative count, false positive count
+        true positive count, false_negative count, false positive count, precision, recall, f1
     """
     t = list(truth)
     d = list(detected)
@@ -123,22 +135,19 @@ def evaluate(truth, detected, tol):
     tp = 0
     
     for tx,ty,_,_ in t:
-        found = False
-        for i in xrange(len(d)):
-            if abs(tx-d[i][0]) < tol and abs(ty-d[i][1]) < tol:
-                del d[i]
-                tp += 1
-                found = True
-                break
-        if not found:
+        index = contains(d, tx, ty, tol)
+        if index >= 0:
+            del d[index]
+            tp += 1
+        else:
             fn += 1
     
     fp = len(d)
     
-    
     f1_score = 0.0
     precision = 0.0
     recall = 0.0
+    
     if (tp + fp) != 0:
         precision = float(tp) / float(tp + fp)
     if (tp + fn) != 0:    
