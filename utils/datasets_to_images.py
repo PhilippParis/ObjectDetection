@@ -20,25 +20,26 @@ import tensorflow as tf
 
 FLAGS = gflags.FLAGS
 
-gflags.DEFINE_integer('image_size', 64, 'width and height of the output example images')
-gflags.DEFINE_string('output_dir','../data/', 'output directory')
+gflags.DEFINE_integer('image_size', 128, 'width and height of the output example images')
+gflags.DEFINE_string('output_dir','../', 'output directory')
 
 gflags.DEFINE_string('output_pos', 'positives.png', 'output file')
 gflags.DEFINE_string('output_neg', 'negatives.png', 'output file')
 
-def import_data():
+def images():
     """
     Returns training and evaluation data sets
     """
-    data = input_data.Data(FLAGS.image_size, FLAGS.image_size)
-    for i in xrange(1, 3):
-        data.add('../data/train/data/train_' + str(i) + '.csv', '../data/train/train_' + str(i) + '.tif')
-    data.finalize()   
-
-    print '(datasets, positive, negative)'
-    print data.info()
     
-    return data
+    for i in xrange(1, 22):
+        image = utils.getImage('../../data/eval/eval_' + str(i) + '.tif')        
+        data = utils.csv_to_list('../../data/eval/data/eval_' + str(i) + '.csv')
+        
+        image = cv2.copyMakeBorder(image, FLAGS.image_size,FLAGS.image_size,FLAGS.image_size,FLAGS.image_size, cv2.BORDER_REPLICATE)
+        data = [(x + FLAGS.image_size, y + FLAGS.image_size, r, l) for (x,y,r,l) in data]
+        
+        yield image, data
+
 
 # ============================================================= #    
 
@@ -72,16 +73,54 @@ def main(argv):
         print '%s\\nUsage: %s ARGS\\n%s' % (e, sys.argv[0], FLAGS)
         
     # import data
-    data = import_data()
-    _,count_pos,count_neg = data.info()
     
-     # positive examples
-    img_pos = create_img(data, count_pos, [0, 1], 100)
+    count_pos = 0
+    count_neg = 0
+    for img, data in images():
+        for x,y,r,l in data:
+            if l == 1: 
+                count_pos += 1
+            if l == 0:
+                count_neg += 1
+                
+    imgs_per_row = 100
+    width = imgs_per_row * FLAGS.image_size;
+    
+    height = int(math.ceil(float(count_pos) / imgs_per_row) * FLAGS.image_size)
+    img_pos = numpy.zeros((height, width), numpy.float)
+    
+    height = int(math.ceil(float(count_neg) / imgs_per_row) * FLAGS.image_size)
+    img_neg = numpy.zeros((height, width), numpy.float)
+    
+    s = FLAGS.image_size/2
+    
+    x_pos = s
+    y_pos = s
+    x_neg = s
+    y_neg = s
+    
+    for img, data in images():
+        for x,y,r,l in data:
+            if l == 1:
+                img_pos[y_pos-s:y_pos+s, x_pos-s:x_pos+s] = img[y-s:y+s, x-s:x+s] 
+                x_pos += FLAGS.image_size
+                
+            if l == 0:
+                img_neg[y_neg-s:y_neg+s, x_neg-s:x_neg+s] = img[y-s:y+s, x-s:x+s] 
+                x_neg += FLAGS.image_size
+                
+            if x_pos >= imgs_per_row * FLAGS.image_size:
+                x_pos = s
+                y_pos += FLAGS.image_size
+                
+            if x_neg >= imgs_per_row * FLAGS.image_size:
+                x_neg = s
+                y_neg += FLAGS.image_size
+     
+     
     img_pos = cv2.normalize(img_pos, None, 0, 255, cv2.NORM_MINMAX)
     cv2.imwrite(FLAGS.output_dir + str(count_pos) + "_" + FLAGS.output_pos, img_pos)
     
-    # negative examples
-    img_neg = create_img(data, count_neg, [1, 0], 100)
     img_neg = cv2.normalize(img_neg, None, 0, 255, cv2.NORM_MINMAX)
     cv2.imwrite(FLAGS.output_dir + str(count_neg) + "_" + FLAGS.output_neg, img_neg)
     

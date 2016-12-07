@@ -21,8 +21,8 @@ import csv
 
 FLAGS =  gflags.FLAGS
 
-gflags.DEFINE_string('input_file','../data/training/train_12_marked.tif', 'path to input file')
-gflags.DEFINE_string('output_file','../data/training/data/test_12.csv', 'output file')
+gflags.DEFINE_string('input_file','../../data/eval/eval_1_marked.tif', 'path to input file')
+gflags.DEFINE_string('output_file','../../data/eval/data/test.csv', 'output file')
 gflags.DEFINE_integer('rad', 64, 'radius of objects')
 
 def findObjects(mask):
@@ -79,17 +79,24 @@ def main(argv):
     count = len(objects)
     
     # ----------- create negative objects ---------#
-    for i in xrange(1000):
+    for i in xrange(10000):
         x = int(50 + random.random() * (width - 50))
         y = int(50 + random.random() * (height - 50))
+        
+        if np.sum(img[y-64:y+64, x-64:x+64]) == 0:
+            continue
         
         valid = True
         for c in objects:
             if abs(x - c[0]) < 2 * FLAGS.rad and abs(y - c[1]) < 2 * FLAGS.rad:
                 valid = False
                 break
+            
         if valid:
             objects.append((x,y, FLAGS.rad, 0))
+            
+        if len(objects) > 1500:
+            break
     
     # ----------------- output ---------------------#
     print '# positive objects: ' + str(count)

@@ -8,6 +8,8 @@ def print_to_file(path, txt):
     with open(path, 'a') as file:
         file.write(txt + '\n')
 
+# ============================================================= #
+
 def getImage(path):
     """
     Args: 
@@ -18,6 +20,7 @@ def getImage(path):
     img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
     return cv2.normalize(img, None, 0.0, 1.0, cv2.NORM_MINMAX, cv2.CV_32F) 
 
+# ============================================================= #
 
 def getSubImage(image, x, y, size):
     """
@@ -35,6 +38,7 @@ def getSubImage(image, x, y, size):
         
     return image[y - height : y + height, x - width : x + width]
 
+# ============================================================= #
 
 def scaleImage(image, size):
     """
@@ -48,6 +52,7 @@ def scaleImage(image, size):
     """
     return cv2.resize(image, size, interpolation = cv2.INTER_CUBIC)
 
+# ============================================================= #
 
 def rotateImage(image, angle):
     """
@@ -58,8 +63,9 @@ def rotateImage(image, angle):
     return cv2.warpAffine(image, rot_mat, image.shape, flags=cv2.INTER_LINEAR)
     
 
+# ============================================================= #
 
-def slidingWindow(image, stepSize, windowSize):
+def slidingWindow(image, stepSize, windowSize, imgSize):
     """
     returns subimages (windowsize) from the image starting in the left upper corner, moving to the
     bottom right corner by stepsize
@@ -83,25 +89,72 @@ def slidingWindow(image, stepSize, windowSize):
             
             img = image[y : y + windowSize[1], x : x + windowSize[0]]
             
+            if windowSize != imgSize:
+                img = cv2.resize(img, imgSize, interpolation=cv2.INTER_CUBIC)
+            
             images.append(img)
             coords.append([x + windowSize[1] / 2, y + windowSize[0] / 2])
             count += 1
             
             if count > 500:
-                yield numpy.array(images).reshape([count, windowSize[0] * windowSize[1]]), numpy.array(coords).reshape([count, 2])
+                yield numpy.array(images).reshape([count, imgSize[0] * imgSize[1]]), numpy.array(coords).reshape([count, 2])
                 images = []
                 coords = []
                 count = 0
     
     if count > 0:
-        yield numpy.array(images).reshape([count, windowSize[0] * windowSize[1]]), numpy.array(coords).reshape([count, 2])
+        yield numpy.array(images).reshape([count, imgSize[0] * imgSize[1]]), numpy.array(coords).reshape([count, 2])
 
+# ============================================================= #
+    
+def evaluate(truth, detected, tol):
+    """
+    evaluates the quality of the detection
+    Args:
+        truth: list of ground truth objects center points
+        detected: list of detected objects center points
+    Returns:
+        true positive count, false_negative count, false positive count
+    """
+    t = list(truth)
+    d = list(detected)
+    
+    fn = 0
+    tp = 0
+    
+    for tx,ty,_,_ in t:
+        found = False
+        for i in xrange(len(d)):
+            if abs(tx-d[i][0]) < tol and abs(ty-d[i][1]) < tol:
+                del d[i]
+                tp += 1
+                found = True
+                break
+        if not found:
+            fn += 1
+    
+    fp = len(d)
+    
+    
+    f1_score = 0.0
+    precision = 0.0
+    recall = 0.0
+    if (tp + fp) != 0:
+        precision = float(tp) / float(tp + fp)
+    if (tp + fn) != 0:    
+        recall = float(tp) / float(tp + fn)
+    if (precision + recall) != 0:
+        f1_score = 2 * (precision * recall) / (precision + recall)
+    
+    return tp, fn, fp, precision, recall, f1_score
+
+# ============================================================= #
 
 def csv_to_list(csv_file_path, onlyTrue=False):
     """
     converts the csv file at 'csv_file_path' into a list of integer triples
     Args:
-        csv_file_path: path to csv file (3 columns with integer values)
+        csv_file_path: path to csv file (4 columns with integer values)
         onlyTrue: returns only rows where the fourth column == 1
     Returns:
         list
@@ -110,5 +163,5 @@ def csv_to_list(csv_file_path, onlyTrue=False):
     csv_file = open(csv_file_path, 'rb')
     for row in csv.reader(csv_file, delimiter=','):
         if len(row) < 4 or (not onlyTrue or int(row[3]) == 1):
-            candidates.append((int(row[0]), int(row[1]), int(row[2])))
+            candidates.append((int(row[0]), int(row[1]), int(row[2]), int(row[3])))
     return candidates

@@ -22,7 +22,7 @@ def create(network_input, keep_prob):
         biases = model.bias_var([NUM_CLASSES])
         
         # do not use tf.nn.softmax here -> loss uses tf.nn.sparse_softmax_cross_entropy_with_logits
-        classifier = tf.add(tf.matmul(logits, weights), biases)
+        classifier = tf.nn.softmax(tf.add(tf.matmul(logits, weights), biases))
         model.variable_summaries(classifier, 'network-output')
         return classifier
 

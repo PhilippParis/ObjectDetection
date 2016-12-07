@@ -10,15 +10,16 @@ usage:
                                     -log_dir="tensorboard logdir"
 """
 
-import utils
-import input_data
 import numpy
 import cv2
 import time
 import tensorflow as tf
-import classifier as classifier
 import csv
 import os
+
+from utils import utils
+from utils import input_data
+from models import classifier as classifier
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
@@ -27,12 +28,12 @@ flags.DEFINE_integer('image_size', 128, 'width and height of the input images')
 
 flags.DEFINE_integer('batch_size', 128, 'training batch size')
 flags.DEFINE_integer('max_steps', 200, 'number of steps to run trainer')
-flags.DEFINE_float('learning_rate', 0.00001, 'Initial learning rate.')
+flags.DEFINE_float('learning_rate', 0.001, 'Initial learning rate.')
 flags.DEFINE_float('dropout', 0.75, 'Keep probability for training dropout.')
 
-flags.DEFINE_string('checkpoint_path','../output/checkpoints/classifier', 'path to checkpoint')
-flags.DEFINE_string('log_dir','../output/log/classifier', 'path to log directory')
-flags.DEFINE_string('output_file','../output/results/classifier/train.csv', 'path to log directory')
+flags.DEFINE_string('checkpoint_path','../output/checkpoints/classifier2', 'path to checkpoint')
+flags.DEFINE_string('log_dir','../output/log/classifier2', 'path to log directory')
+flags.DEFINE_string('output_file','../output/results/classifier2/train.csv', 'path to log directory')
 
 sess = 0
 
@@ -43,7 +44,7 @@ def import_data():
     train_set = input_data.Data((FLAGS.image_size, FLAGS.image_size), (1,1))
     eval_set = input_data.Data((FLAGS.image_size, FLAGS.image_size), (1,1))
 
-    train_set.add_examples("../data/detect/train/10414_positives.png", 10414, 100, 1)
+    train_set.add_examples("../data/detect/train/positives2.png", 8300, 100, 1)
     train_set.add_examples("../data/detect/train/20038_negatives.png", 20038, 100, 0)
     
     eval_set.add_examples("../data/detect/eval/1510_positives.png", 1510, 100, 1)
@@ -127,13 +128,13 @@ def train_model(model, train_set, eval_set, x, y_, keep_prob):
         step = tf.train.global_step(sess, global_step)
         
         # write summary 
-        if step % 100 == 0:
+        if step % 500 == 0:
             summary_str = sess.run(merged_summary, feed_dict = feed)
             writer.add_summary(summary_str, step)
             writer.flush()
             
         # evaluation
-        if step % 100 == 0:
+        if step % 500 == 0:
             test_precision = evaluation(step, eval_set, top_k_op, x, y_, keep_prob)
             train_precision = evaluation(step, train_set, top_k_op, x, y_, keep_prob)
             utils.print_to_file(FLAGS.output_file,str(step) + ',' + str(test_precision) + ',' + str(train_precision))

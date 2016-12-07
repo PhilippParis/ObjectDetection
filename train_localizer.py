@@ -10,15 +10,16 @@ usage:
                                     -log_dir="tensorboard logdir"
 """
 
-import utils
-import input_data as input_data
 import numpy
 import cv2
 import time
 import tensorflow as tf
-import localizer as localizer
 import csv
 import os
+
+from utils import utils
+from utils import input_data
+from model import localizer as localizer
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
