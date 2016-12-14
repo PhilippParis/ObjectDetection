@@ -25,7 +25,7 @@ gflags.DEFINE_integer('image_size', 128, 'width and height of the example images
 gflags.DEFINE_integer('mask_size', 32, 'width and height of the mask images')
 gflags.DEFINE_integer('count', 200, 'amount of randomly exported sub images')
 
-gflags.DEFINE_string('output_img_dir','../data/detect/eval/', 'input file')
+gflags.DEFINE_string('output_img_dir','../../data/detect/eval/', 'input file')
 
 def get_labels(path, label):
     csvfile = open(path, 'rb')
@@ -97,8 +97,8 @@ def main(argv):
     
     paths = []
     for i in xrange(1, 22):
-        image_path = '../data/eval/eval_' + str(i) + '.tif'
-        label_path = '../data/eval/data/eval_' + str(i) + '.csv'
+        image_path = '../../data/eval/eval_' + str(i) + '.tif'
+        label_path = '../../data/eval/data/eval_' + str(i) + '.csv'
         paths.append((image_path, label_path))
         positives_count += get_count(label_path, 1)
         negatives_count += get_count(label_path, 0)
@@ -109,7 +109,7 @@ def main(argv):
     height_neg = int(math.ceil(float(negatives_count) / 100) * FLAGS.image_size)
     height_lbl = int(math.ceil(float(positives_count) / 100) * FLAGS.mask_size)
     
-    #img_pos = numpy.zeros((height_pos, 100 * FLAGS.image_size), numpy.float)
+    img_pos = numpy.zeros((height_pos, 100 * FLAGS.image_size), numpy.float)
     #img_neg = numpy.zeros((height_neg, 100 * FLAGS.image_size), numpy.float)
     img_lbl = numpy.zeros((height_lbl, 100 * FLAGS.mask_size), numpy.float)
 
@@ -133,11 +133,11 @@ def main(argv):
         height, width = src.shape
            
         for (x, y) in positives:
-            x = x + random.randrange(-20, 20)
-            y = y + random.randrange(-20, 20)
+            #x = x + random.randrange(-20, 20)
+            #y = y + random.randrange(-20, 20)
             
             # create positive example
-            """
+            
             img = create_input_img(src, x + FLAGS.image_size / 2, y + FLAGS.image_size / 2)
             img_pos[y_pos : y_pos + FLAGS.image_size, x_pos : x_pos + FLAGS.image_size] = img
             x_pos += FLAGS.image_size
@@ -145,7 +145,6 @@ def main(argv):
                 x_pos = 0
                 y_pos += FLAGS.image_size
             del img
-            """
             
             # create label
             lbl = create_label_img(positives, x - FLAGS.image_size / 2, y - FLAGS.image_size / 2)
@@ -155,6 +154,7 @@ def main(argv):
                 x_lbl = 0
                 y_lbl += FLAGS.mask_size
             del lbl
+            
         """        
         for (x, y) in negatives:
             img = create_input_img(src, x, y)
@@ -167,11 +167,11 @@ def main(argv):
         """ 
         del src
         
-    #img_pos = cv2.normalize(img_pos, None, 0, 255, cv2.NORM_MINMAX)
+    img_pos = cv2.normalize(img_pos, None, 0, 255, cv2.NORM_MINMAX)
     #img_neg = cv2.normalize(img_neg, None, 0, 255, cv2.NORM_MINMAX)
     img_lbl = cv2.normalize(img_lbl, None, 0, 255, cv2.NORM_MINMAX)
     
-    #cv2.imwrite(FLAGS.output_img_dir + str(positives_count) + "_positives.png", img_pos) 
+    cv2.imwrite(FLAGS.output_img_dir + str(positives_count) + "_positives.png", img_pos) 
     #cv2.imwrite(FLAGS.output_img_dir + str(negatives_count) + "_negatives.png", img_neg) 
     cv2.imwrite(FLAGS.output_img_dir + str(positives_count) + "_labels.png", img_lbl)  
     

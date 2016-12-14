@@ -17,12 +17,13 @@ FLAGS = flags.FLAGS
 flags.DEFINE_integer('image_size', 128, 'width and height of the input images')
 flags.DEFINE_integer('window_size', 64, 'width and height of the sliding window')
 
-flags.DEFINE_string('test', 'eval_1', 'name of the test image')
+flags.DEFINE_string('test', 'eval_14', 'name of the test image')
 
 flags.DEFINE_boolean('show_ground_truth', True, 'show ground truth data in output image')
 
 flags.DEFINE_integer('step_size', 10, 'sliding window step size')
 flags.DEFINE_integer('tol', 25, 'max tolerated distance error between ground truth crater and detected crater')
+flags.DEFINE_integer('nms_threshold', 512, 'threshold area for the non maximum suppression')
 
 flags.DEFINE_string('checkpoint_dir','../output/checkpoints/classifier', 'path to tensorflow checkpoint dir')
 flags.DEFINE_string('ground_truth_dir','../data/eval/data/', 'path to ground truth data dir')
@@ -42,80 +43,71 @@ def detect(model, x, keep_prob, src, delta):
         src: image to apply the detection
         delta: list of detection thresholds
     Returns:
-        a list of image masks scaled between 0 and 255.
-        mask at position i is the result of the detection with threshold delta[i]
+        2d list of bounding boxes [(left upper x, left upper y, size, score)]
+        output[i] are the positively classified sliding windows with threshold delta[i]
     """
     
     global sess
     
     height, width = src.shape
-    mask = np.zeros((len(delta), height,width), np.float32)
     w_size = (FLAGS.window_size, FLAGS.window_size)
     i_size = (FLAGS.image_size, FLAGS.image_size)
     
-    gaussian_kernel = np.dot(cv2.getGaussianKernel(FLAGS.window_size,5),np.transpose(cv2.getGaussianKernel(FLAGS.window_size,5)))
-
+    output = []
+    for i in xrange(0, len(delta)):
+        output.append([])
+    
     for windows, coords in utils.slidingWindow(src, FLAGS.step_size, w_size, i_size):
         feed = {x:windows, keep_prob:1.0}
-        out = sess.run(model, feed_dict = feed)
-
-        for i in range(0, len(out)):
-            xc = coords[i][0] - FLAGS.window_size / 2
-            yc = coords[i][1] - FLAGS.window_size / 2
-            
+        out = sess.run(tf.nn.softmax(model), feed_dict = feed)
+        for i in range(0, len(out)):   
             for j in xrange(0, len(delta)):
                 if out[i][1] - out[i][0] > delta[j]:
-                    mask[j][yc:yc+FLAGS.window_size, xc:xc+FLAGS.window_size] += gaussian_kernel
+                    output[j].append((coords[i][0] - FLAGS.window_size / 2, coords[i][1] - FLAGS.window_size / 2, FLAGS.window_size, out[i][1] - out[i][0]))
     
-    out = []
-    for j in xrange(0, len(delta)):
-        out.append(cv2.normalize(mask[j], None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U))
-        #cv2.imwrite(FLAGS.output_dir + FLAGS.test + '_mask_' + str(FLAGS.step_size) + '_' + str(delta[j]) + str(datetime.datetime.now()) + '.png', out[j])
-    return out
-
+    return output
 
 # ============================================================= #
-
-def mask_to_objects(mask, threshold):
+    
+def non_maximum_suppression(bboxes, th):
     """
-    applies a blob detection algorithm to the image
+    applies non_maximum_suppression to the set of bounding boxes
     Args:
-        mask: image mask scaled between 0 and 255 
-        threshold: min pixel intensity of interest
+        bboxes: list of bounding boxes [(left upper x, left upper y, size, score)]
     Returns:
-        list of objects [(x,y)]
+        list of objects [(center x, center y)]
     """
+    
+    def get_score(item):
+        return item[3]
+    
+    # sort boxes according to detection scores
+    sort = sorted(bboxes, reverse=True, key=get_score)
 
-    params = cv2.SimpleBlobDetector_Params()
-    params.minThreshold = threshold
-    params.maxThreshold = 255
-    
-    params.filterByArea = True
-    params.minArea = 150
-    params.maxArea = 10000
-    
-    params.filterByCircularity = False
-    params.filterByInertia = False
-    params.filterByConvexity = False
-    params.filterByColor = False
-
-    # Create a detector with the parameters
-    ver = (cv2.__version__).split('.')
-    if int(ver[0]) < 3:
-        detector = cv2.SimpleBlobDetector(params)
-    else: 
-        detector = cv2.SimpleBlobDetector_create(params)
-        
-    keypoints = detector.detect(mask)
-    
-    objects = []
-    for k in keypoints:
-        objects.append((int(k.pt[0]), int(k.pt[1])))
-    
-    return objects
+    for i in range(len(sort)): 
+        j = i + 1
+        while (j < len(sort)):
+            if i >= len(sort) or j >= len(sort):
+                break
+            if overlap(sort[i][0], sort[i][1], sort[i][2], sort[j][0], sort[j][1], sort[j][2]) > th:
+                del sort[j]
+                j -= 1
+            j += 1 
+    return [(x + size / 2, y + size / 2) for (x,y,size,score) in sort]
 
 # ============================================================= #
+
+def overlap(xa1, ya1, sa, xb1, yb1, sb):
+    xa2 = xa1 + sa
+    ya2 = ya1 + sa
     
+    xb2 = xb1 + sb
+    yb2 = yb1 + sb
+    
+    return max(0, min(xa2, xb2) - max(xa1, xb1)) * max(0, min(ya2, yb2) - max(ya1, yb1))
+    
+# ============================================================= #
+
 def main(_):
     # ---------- create model ----------------#
     x           = tf.placeholder("float", shape=[None, FLAGS.image_size * FLAGS.image_size])
@@ -134,10 +126,10 @@ def main(_):
     img = utils.getImage(FLAGS.input_dir + FLAGS.test + '.tif')
     img = cv2.copyMakeBorder(img, FLAGS.image_size, FLAGS.image_size, FLAGS.image_size, FLAGS.image_size, cv2.BORDER_REPLICATE) 
     
-    delta = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95, 0.99, 0.995, 0.999, 0.9995, 0.9999, 0.99999, 1.5, 2.0, 2.5]
+    delta = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95, 0.99, 0.995, 0.999, 0.9995, 0.9999, 0.99999]
     
     start = time.time()
-    mask = detect(model, x, keep_prob, img, delta)
+    bboxes = detect(model, x, keep_prob, img, delta)
 
     elapsed = time.time() - start
     print 'detection time: %d' % (elapsed)
@@ -146,26 +138,30 @@ def main(_):
     global_step = tf.train.global_step(sess, global_step)
     
     ground_truth_data = utils.csv_to_list(FLAGS.ground_truth_dir + FLAGS.test + '.csv', True)
-    ground_truth_data = [(x + FLAGS.image_size,y + FLAGS.image_size,rad) for (x,y,rad) in ground_truth_data]
+    ground_truth_data = [(x + FLAGS.image_size,y + FLAGS.image_size,rad) for (x,y,rad,lbl) in ground_truth_data]
     
     
     for i in xrange(0, len(delta)):
-        detected = mask_to_objects(mask[i], 200)
+        detected = non_maximum_suppression(bboxes[i], FLAGS.nms_threshold)
         tp, fn, fp, pr, re, f1 = utils.evaluate(ground_truth_data, detected, FLAGS.tol)
         
         # ----------------output ----------------#
         # image output
-        '''
+        """
         img_out = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB) * 255
+        
         for c in detected:
             cv2.circle(img_out, (c[0], c[1]), 25, [0,255,0],3)
                 
         for c in ground_truth_data:
             cv2.circle(img_out, (c[0], c[1]), 3, [0,0,255],3)
             
+        for (x,y,size,score) in bboxes[i]:
+            cv2.rectangle(img_out, (x,y), (x + size, y + size), [200,200,200], 2)
+            
         output_file = FLAGS.test + '_' + str(global_step) + 'its_' + str(FLAGS.step_size) + 'step_' + 'threshold_' + str(datetime.datetime.now())
         cv2.imwrite(FLAGS.output_dir + output_file + '.png', img_out)
-        '''
+        """
         # csv output
         with open(FLAGS.output_dir + 'results.csv', 'ab') as file:
             writer = csv.writer(file, delimiter=',')

@@ -378,6 +378,54 @@ def count_blacks():
                 
     print str(count) + ", " + str(total)
     
+# ============================================================= #
+
+def non_maximum_suppression(bboxes, th):
+    """
+    applies non_maximum_suppression to the set of bounding boxes
+    Args:
+        bboxes: list of bounding boxes [(left upper x, left upper y, size, score)]
+    Returns:
+        list of objects [(center x, center y)]
+    """
+    
+    def get_score(item):
+        return item[3]
+    
+    # sort boxes according to detection scores
+    sort = sorted(bboxes, reverse=True, key=get_score)
+    
+    for i in range(len(sort)): 
+        j = i + 1
+        while (j < len(sort)):
+            if i >= len(sort) or j >= len(sort):
+                break
+            if overlap(sort[i][0], sort[i][1], sort[i][2], sort[j][0], sort[j][1], sort[j][2]) > th:
+                del sort[j]
+                j -= 1
+            j += 1
+            
+    return [(x + size / 2, y + size / 2) for (x,y,size,score) in sort]
+# ============================================================= #
+
+def overlap(xa1, ya1, sa, xb1, yb1, sb):
+    xa2 = xa1 + sa
+    ya2 = ya1 + sa
+    
+    xb2 = xb1 + sb
+    yb2 = yb1 + sb
+    
+    return max(0, min(xa2, xb2) - max(xa1, xb1)) * max(0, min(ya2, yb2) - max(ya1, yb1))
+    
+# ============================================================= #
+
+def test_nms():
+    bboxes = [(200, 200, 64, 1.0), (168, 168, 64, 0.2),(232,168,64,0.5),(568,232,64,0.7), (232,232,64,0.9),
+              (300, 300, 64, 1.0), (268, 268, 64, 0.2),(232,168,64,0.5),(268,332,64,0.7), (332,332,64,0.9)] 
+    result = non_maximum_suppression(bboxes, 500)
+    
+    print "result"
+    print result
 
 if __name__ == '__main__':
-    eval_cascade_training()
+    test_nms()

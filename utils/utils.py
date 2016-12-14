@@ -128,21 +128,21 @@ def evaluate(truth, detected, tol):
     Returns:
         true positive count, false_negative count, false positive count, precision, recall, f1
     """
-    t = list(truth)
-    d = list(detected)
+    
+    detected = list(detected)
     
     fn = 0
     tp = 0
     
-    for tx,ty,_,_ in t:
-        index = contains(d, tx, ty, tol)
+    for tx,ty,_ in truth:
+        index = contains(detected, tx, ty, tol)
         if index >= 0:
-            del d[index]
+            del detected[index]
             tp += 1
         else:
             fn += 1
     
-    fp = len(d)
+    fp = len(detected)
     
     f1_score = 0.0
     precision = 0.0

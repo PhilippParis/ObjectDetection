@@ -139,7 +139,7 @@ def main(_):
     global_step = tf.train.global_step(sess, global_step)
     
     ground_truth_data = utils.csv_to_list(FLAGS.ground_truth_dir + FLAGS.test + '.csv', True)
-    ground_truth_data = [(x + FLAGS.image_size,y + FLAGS.image_size,rad) for (x,y,rad) in ground_truth_data]
+    ground_truth_data = [(x + FLAGS.image_size,y + FLAGS.image_size,rad) for (x,y,rad,lbl) in ground_truth_data]
     
     for th in xrange(10, 250, 10):
         detected = mask_to_objects(mask, th)
