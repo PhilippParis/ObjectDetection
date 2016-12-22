@@ -6,7 +6,7 @@ import csv
 import os
 import datetime
 
-from models import classifier as nn
+from models import simple_classifier as nn
 from utils import utils
 from utils  import input_data
 
@@ -14,10 +14,10 @@ from utils  import input_data
 flags = tf.app.flags
 FLAGS = flags.FLAGS
 
-flags.DEFINE_integer('image_size', 128, 'width and height of the input images')
+flags.DEFINE_integer('image_size', 15, 'width and height of the input images')
 flags.DEFINE_integer('window_size', 64, 'width and height of the sliding window')
 
-flags.DEFINE_string('test', 'eval_14', 'name of the test image')
+flags.DEFINE_string('test', 'eval_12', 'name of the test image')
 
 flags.DEFINE_boolean('show_ground_truth', True, 'show ground truth data in output image')
 
@@ -25,10 +25,10 @@ flags.DEFINE_integer('step_size', 10, 'sliding window step size')
 flags.DEFINE_integer('tol', 25, 'max tolerated distance error between ground truth crater and detected crater')
 flags.DEFINE_integer('nms_threshold', 512, 'threshold area for the non maximum suppression')
 
-flags.DEFINE_string('checkpoint_dir','../output/checkpoints/classifier', 'path to tensorflow checkpoint dir')
+flags.DEFINE_string('checkpoint_dir','../output/checkpoints/classifier_simple_with_drop_lrn', 'path to tensorflow checkpoint dir')
 flags.DEFINE_string('ground_truth_dir','../data/eval/data/', 'path to ground truth data dir')
 flags.DEFINE_string('input_dir','../data/eval/', 'path to input images')
-flags.DEFINE_string('output_dir','../output/results/classifier/', 'path to output dir')
+flags.DEFINE_string('output_dir','../output/results/classifier_simple_with_drop_lrn/', 'path to output dir')
 
 # start session
 sess = tf.InteractiveSession()

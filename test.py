@@ -428,4 +428,12 @@ def test_nms():
     print result
 
 if __name__ == '__main__':
-    test_nms()
+    img = utils.getImage("../data/detect/eval/3710_negatives.png")
+    
+    cv2.imshow('image',img)
+    cv2.waitKey(0)
+    
+    img = (1.0 - img)
+    
+    cv2.imshow('image',img)
+    cv2.waitKey(0)

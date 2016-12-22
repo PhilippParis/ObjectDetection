@@ -17,7 +17,7 @@ flags.DEFINE_integer('image_size', 128, 'width and height of the input images')
 flags.DEFINE_integer('window_size', 128, 'width and height of the sliding window')
 
 flags.DEFINE_integer('label_size', 32, 'width and height of the input images')
-flags.DEFINE_string('test', 'eval_8', 'name of the test image')
+flags.DEFINE_string('test', 'eval_5', 'name of the test image')
 
 flags.DEFINE_boolean('show_ground_truth', True, 'show ground truth data')
 
@@ -65,7 +65,7 @@ def create_mask(model, x, keep_prob, src):
     # image processing
     
     mask = cv2.normalize(mask, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
-    #cv2.imwrite(FLAGS.output_dir + FLAGS.test + '_mask_' + str(FLAGS.step_size) + '_' + str(datetime.datetime.now()) + '.png', mask)
+    cv2.imwrite(FLAGS.output_dir + FLAGS.test + '_mask_' + str(FLAGS.step_size) + '_' + str(datetime.datetime.now()) + '.png', mask)
     return mask
 
 # ============================================================= #
@@ -147,7 +147,6 @@ def main(_):
         
         # ----------------output ----------------#
         # image output
-        '''
         img_out = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB) * 255
         for c in detected:
             cv2.circle(img_out, (c[0], c[1]), 25, [0,255,0],3)
@@ -157,7 +156,6 @@ def main(_):
         
         output_file = FLAGS.test + '_' + str(global_step) + 'its_' + str(FLAGS.step_size) + 'step_' + str(th) + 'threshold_' + str(datetime.datetime.now())
         cv2.imwrite(FLAGS.output_dir + output_file + '.png', img_out)
-        '''
         # csv output
         with open(FLAGS.output_dir + 'results.csv', 'ab') as file:
             writer = csv.writer(file, delimiter=',')

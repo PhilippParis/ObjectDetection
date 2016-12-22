@@ -96,7 +96,7 @@ def slidingWindow(image, stepSize, windowSize, imgSize):
             coords.append([x + windowSize[1] / 2, y + windowSize[0] / 2])
             count += 1
             
-            if count > 500:
+            if count > 2048:
                 yield numpy.array(images).reshape([count, imgSize[0] * imgSize[1]]), numpy.array(coords).reshape([count, 2])
                 images = []
                 coords = []

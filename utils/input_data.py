@@ -47,12 +47,22 @@ class Data:
         for i in xrange(count):
             example = src_image[y : y + self.img_size[1], x : x + self.img_size[0]]
             
-            self.images.append(example)            
-            if not label is None:
-                self.labels.append(label)
-            
-            self.count += 1
-            
+            for j in xrange(4):
+                example = utils.rotateImage(example, 90)
+                
+                # add normal
+                self.images.append(example)  
+                # add inverted
+                self.images.append(1.0 - example) 
+                
+                if not label is None:
+                    # add label 
+                    self.labels.append(label)
+                    # add label for inverted
+                    self.labels.append(label)
+                    
+                self.count += 2
+                
             x += self.img_size[0]
             if x >= imgs_per_row * self.img_size[0]:
                 x = 0
@@ -69,8 +79,13 @@ class Data:
         for i in xrange(count):
             label = src_image[y : y + self.lbl_size[1], x : x + self.lbl_size[0]]
             
-            self.labels.append(label.flatten('C'))
-            
+            for j in xrange(4):
+                label = utils.rotateImage(label, 90)
+                
+                # add label twice for inverted image
+                self.labels.append(label.flatten('C'))
+                self.labels.append(label.flatten('C'))
+                
             x += self.lbl_size[0]
             if x >= imgs_per_row * self.lbl_size[0]:
                 x = 0
