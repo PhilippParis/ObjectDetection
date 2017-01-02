@@ -20,28 +20,28 @@ def create(network_input, keep_prob):
     
     # - Layer 1 - #
     with tf.variable_scope('conv1') as scope:
-        conv1 = model.conv2d(input_reshaped, [4, 4, 1, 30], [1, 1, 1, 1])
+        conv1 = model.conv2d(input_reshaped, [4, 4, 1, 20], [1, 1, 1, 1])
         norm1 = tf.nn.lrn(conv1, 3, bias=2.0, alpha=0.0001, beta=0.75, name='norm1')
-        # output size img_size x img_size x 30
+        # output size img_size x img_size x 20
         
     # - Layer 2 - #
     with tf.variable_scope('conv2') as scope:
-        conv2 = model.conv2d(norm1, [4, 4, 30, 30], [1, 1, 1, 1])
+        conv2 = model.conv2d(norm1, [4, 4, 20, 20], [1, 1, 1, 1])
         norm2 = tf.nn.lrn(conv2, 3, bias=2.0, alpha=0.0001, beta=0.75, name='norm1')
-        # output size img_size x img_size x 30
+        # output size img_size x img_size x 20
         
     # - Layer 3 - #
     with tf.variable_scope('local1') as scope:
-        weights = model.weight_var([FLAGS.image_size * FLAGS.image_size * 30, 1024], 0.004)
-        biases = model.bias_var([1024])
+        weights = model.weight_var([FLAGS.image_size * FLAGS.image_size * 20, 500], 0.004)
+        biases = model.bias_var([500])
         
-        conv2_flat = tf.reshape(norm2, [-1, FLAGS.image_size * FLAGS.image_size * 30])
+        conv2_flat = tf.reshape(norm2, [-1, FLAGS.image_size * FLAGS.image_size * 20])
         local3 = tf.nn.relu(tf.matmul(conv2_flat, weights) + biases)
         drop3 = tf.nn.dropout(local3, keep_prob)
      
     #- layer 4 -#
     with tf.variable_scope('classifier') as scope:
-        weights = model.weight_var([1024, NUM_CLASSES], 0.0)
+        weights = model.weight_var([500, NUM_CLASSES], 0.0)
         biases = model.bias_var([NUM_CLASSES])
         
         # do not use tf.nn.softmax here -> loss uses tf.nn.sparse_softmax_cross_entropy_with_logits

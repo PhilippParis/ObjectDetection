@@ -62,10 +62,9 @@ def rotateImage(image, angle):
     rot_mat = cv2.getRotationMatrix2D(center, angle, scale=1.0)
     return cv2.warpAffine(image, rot_mat, image.shape, flags=cv2.INTER_LINEAR)
     
-
 # ============================================================= #
 
-def slidingWindow(image, stepSize, windowSize, imgSize):
+def slidingWindow(src_img, stepSize, windowSize, scale_factor, min_size, max_size):
     """
     returns subimages (windowsize) from the image starting in the left upper corner, moving to the
     bottom right corner by stepsize
@@ -77,33 +76,53 @@ def slidingWindow(image, stepSize, windowSize, imgSize):
     Returns:
         subimages
     """
+    scale = 1
     count = 0
     images = []
     coords = []
     
-    for y in xrange(0, image.shape[0], stepSize):
-        for x in xrange(0, image.shape[1], stepSize):
-            
-            if x + windowSize[0] > image.shape[1] or y + windowSize[1] > image.shape[0]:
-                continue
-            
-            img = image[y : y + windowSize[1], x : x + windowSize[0]]
-            
-            if windowSize != imgSize:
-                img = cv2.resize(img, imgSize, interpolation=cv2.INTER_CUBIC)
-            
-            images.append(img)
-            coords.append([x + windowSize[1] / 2, y + windowSize[0] / 2])
-            count += 1
-            
-            if count > 2048:
-                yield numpy.array(images).reshape([count, imgSize[0] * imgSize[1]]), numpy.array(coords).reshape([count, 2])
-                images = []
-                coords = []
-                count = 0
+    img_height = src_img.shape[0]
+    img_width = src_img.shape[1]
     
-    if count > 0:
-        yield numpy.array(images).reshape([count, imgSize[0] * imgSize[1]]), numpy.array(coords).reshape([count, 2])
+    while windowSize[0] * scale < min_size[0] or windowSize[1] * scale < min_size[1]:
+        scale *= scale_factor
+    
+    for i in xrange(10):        
+        scaled_window = int(windowSize[0] * scale), int(windowSize[1] * scale)
+        
+        if scaled_window[0] > max_size[0] or scaled_window[1] > max_size[1]:
+            return
+    
+        for y in xrange(0, img_height, stepSize):
+            for x in xrange(0, img_width, stepSize):
+                
+                if x + scaled_window[0] > img_width or y + scaled_window[1] > img_height:
+                    continue
+                
+                img = src_img[y : y + scaled_window[1], x : x + scaled_window[0]]
+                
+                if scaled_window != windowSize:
+                    img = cv2.resize(img, windowSize)
+                
+                images.append(img)
+                coords.append((x, y, scaled_window))
+                
+                count += 1
+                
+                if count > 2048:
+                    yield numpy.array(images).reshape([count, windowSize[0] * windowSize[1]]), coords
+                    images = []
+                    coords = []
+                    count = 0
+                    
+        
+        if count > 0:
+            yield numpy.array(images).reshape([count, windowSize[0] * windowSize[1]]), coords
+            images = []
+            coords = []
+            count = 0
+        
+        scale *= scale_factor            
 
 # ============================================================= #
         

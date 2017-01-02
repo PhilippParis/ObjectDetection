@@ -24,12 +24,12 @@ from models import simple_classifier as classifier
 flags = tf.app.flags
 FLAGS = flags.FLAGS
 
-flags.DEFINE_integer('image_size', 15, 'width and height of the input images')
+flags.DEFINE_integer('image_size', 24, 'width and height of the input images')
 
 flags.DEFINE_integer('batch_size', 512, 'training batch size')
 flags.DEFINE_integer('max_steps', 5000, 'number of steps to run trainer')
-flags.DEFINE_float('learning_rate', 0.00001, 'Initial learning rate.')
-flags.DEFINE_float('dropout', 0.95, 'Keep probability for training dropout.')
+flags.DEFINE_float('learning_rate', 0.0001, 'Initial learning rate.')
+flags.DEFINE_float('dropout', 0.75, 'Keep probability for training dropout.')
 
 flags.DEFINE_string('checkpoint_path','../output/checkpoints/classifier_simple_with_drop_lrn', 'path to checkpoint')
 flags.DEFINE_string('log_dir','../output/log/classifier_simple_with_drop_lrn', 'path to log directory')
@@ -44,11 +44,11 @@ def import_data():
     train_set = input_data.Data((FLAGS.image_size, FLAGS.image_size), (1,1))
     eval_set = input_data.Data((FLAGS.image_size, FLAGS.image_size), (1,1))
 
-    train_set.add_examples("../data/train/15x15/8300_positives.png", 8300, 100, 1)
-    train_set.add_examples("../data/train/15x15/20038_negatives.png", 20038, 100, 0)
+    train_set.add_examples("../data/train/24x24/8300_positives.png", 8300, 100, 1)
+    train_set.add_examples("../data/train/24x24/20038_negatives.png", 20038, 100, 0)
     
-    eval_set.add_examples("../data/train/15x15/eval_1510_positives.png", 1510, 100, 1)
-    eval_set.add_examples("../data/train/15x15/eval_3710_negatives.png", 3710, 100, 0)
+    eval_set.add_examples("../data/train/24x24/eval_1510_positives.png", 1510, 100, 1)
+    eval_set.add_examples("../data/train/24x24/eval_3710_negatives.png", 3710, 100, 0)
     
     train_set.finalize()
     eval_set.finalize()

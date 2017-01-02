@@ -430,10 +430,5 @@ def test_nms():
 if __name__ == '__main__':
     img = utils.getImage("../data/detect/eval/3710_negatives.png")
     
-    cv2.imshow('image',img)
-    cv2.waitKey(0)
-    
-    img = (1.0 - img)
-    
-    cv2.imshow('image',img)
-    cv2.waitKey(0)
+    for windows, coords in utils.slidingWindow(img, 128, (24,24), 1.5):
+        print coords[0]
