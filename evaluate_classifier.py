@@ -8,8 +8,8 @@ import datetime
 
 from models import simple_classifier as nn
 from utils import utils
-from utils  import input_data
-
+from utils import input_data
+from utils.rect import Rect
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
@@ -63,7 +63,7 @@ def detect(model, x, keep_prob, src, delta):
         for i in range(0, len(out)):   
             for j in xrange(0, len(delta)):
                 if out[i][1] - out[i][0] > delta[j]:
-                    output[j].append((coords[i][0], coords[i][1], coords[i][2], out[i][1] - out[i][0]))
+                    output[j].append((coords[i], out[i][1] - out[i][0]))
     
     return output
 
@@ -79,7 +79,7 @@ def non_maximum_suppression(bboxes, th):
     """
     
     def get_score(item):
-        return item[3]
+        return item[1]
     
     # sort boxes according to detection scores
     sort = sorted(bboxes, reverse=True, key=get_score)
@@ -89,23 +89,71 @@ def non_maximum_suppression(bboxes, th):
         while (j < len(sort)):
             if i >= len(sort) or j >= len(sort):
                 break
-            if overlap(sort[i][0], sort[i][1], sort[i][2], sort[j][0], sort[j][1], sort[j][2]) > th:
+            if Rect.overlap(sort[i][0], sort[j][0]) > th:
                 del sort[j]
                 j -= 1
             j += 1 
-    return [(x + size[0] / 2, y + size[1] / 2) for (x,y,size,score) in sort]
+            
+
+    return [r.center() for (r,score) in sort]
 
 # ============================================================= #
 
-def overlap(xa1, ya1, sa, xb1, yb1, sb):
-    xa2 = xa1 + sa[0]
-    ya2 = ya1 + sa[1]
+def ocv_grouping(bboxes, min_neighbours):
     
-    xb2 = xb1 + sb[0]
-    yb2 = yb1 + sb[1]
+    # cluster candidate bboxes into n classes, each class represents equvalent rectangles
+    class_index = [-1] * len(bboxes)
+    num_classes = 0
+    
+    for i in xrange(len(bboxes)):
+        if class_index[i] != -1:
+            continue
+        
+        class_index[i] = num_classes
+        for j in xrange(i + 1, len(bboxes)):
+            if Rect.compare(bboxes[i][0], bboxes[j][0]):
+                class_index[j] = num_classes
+            
+        num_classes += 1    
+            
+    # calc average bounding box of each class
+    avg_bboxes = []
+    class_count = []
+    for i in xrange(num_classes):
+        avg_bboxes.append(Rect(0,0,0,0))
+        class_count.append(0)
+    
+    for i in xrange(len(bboxes)):
+        j = class_index[i]
+        avg_bboxes[j] += bboxes[i][0]
+        class_count[j] += 1
+    
+    
+    # select valid bboxes
+    result = []
+    for i in xrange(num_classes):    
+        # reject classes with count < min_neighbours
+        if class_count[i] < min_neighbours:
+            continue
+        
+        # calc average
+        avg_bboxes[i] /= class_count[i]
+        
+        # reject average bounding boxes which are inside other candidates
+        reject = False
+        for j in range(num_classes):
+            if class_count[j] < min_neighbours:
+                continue
+            
+            if i != j and avg_bboxes[j].contains(avg_bboxes[i]):
+                reject = True
+                break;
+        
+        if not reject:
+            result.append(avg_bboxes[i])
+            
+    return result  
 
-    return max(0, min(xa2, xb2) - max(xa1, xb1)) * max(0, min(ya2, yb2) - max(ya1, yb1))
-    
 # ============================================================= #
 
 def main(_):

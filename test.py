@@ -7,6 +7,7 @@ import tensorflow as tf
 import csv
 import os
 from models import classifier as nn
+from utils.rect import Rect
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
@@ -418,7 +419,6 @@ def overlap(xa1, ya1, sa, xb1, yb1, sb):
     return max(0, min(xa2, xb2) - max(xa1, xb1)) * max(0, min(ya2, yb2) - max(ya1, yb1))
     
 # ============================================================= #
-
 def test_nms():
     bboxes = [(200, 200, 64, 1.0), (168, 168, 64, 0.2),(232,168,64,0.5),(568,232,64,0.7), (232,232,64,0.9),
               (300, 300, 64, 1.0), (268, 268, 64, 0.2),(232,168,64,0.5),(268,332,64,0.7), (332,332,64,0.9)] 
@@ -426,9 +426,78 @@ def test_nms():
     
     print "result"
     print result
+# ============================================================= #
+
+def ocv_grouping(bboxes, min_neighbours):
+    
+    # cluster candidate bboxes into n classes, each class represents equvalent rectangles
+    class_index = [-1] * len(bboxes)
+    num_classes = 0
+    
+    for i in xrange(len(bboxes)):
+        if class_index[i] != -1:
+            continue
+        
+        class_index[i] = num_classes
+        for j in xrange(i + 1, len(bboxes)):
+            if Rect.compare(bboxes[i][0], bboxes[j][0]):
+                class_index[j] = num_classes
+            
+        num_classes += 1    
+            
+    # calc average bounding box of each class
+    avg_bboxes = []
+    class_count = []
+    for i in xrange(num_classes):
+        avg_bboxes.append(Rect(0,0,0,0))
+        class_count.append(0)
+    
+    for i in xrange(len(bboxes)):
+        j = class_index[i]
+        avg_bboxes[j] += bboxes[i][0]
+        class_count[j] += 1
+    
+    
+    # select valid bboxes
+    result = []
+    for i in xrange(num_classes):    
+        # reject classes with count < min_neighbours
+        if class_count[i] < min_neighbours:
+            continue
+        
+        # calc average
+        avg_bboxes[i] /= class_count[i]
+        
+        # reject average bounding boxes which are inside other candidates
+        reject = False
+        for j in range(num_classes):
+            if class_count[j] < min_neighbours:
+                continue
+            
+            if i != j and avg_bboxes[j].contains(avg_bboxes[i]):
+                reject = True
+                break;
+        
+        if not reject:
+            result.append(avg_bboxes[i])
+            
+    return result  
+
+# ============================================================= #
+
+def test_ocv_grouping():
+    
+    class1 = [(Rect(0,0,64,64),0), (Rect(10,20,64,64),0), (Rect(20,20,64,64),0)]
+    class2 = [(Rect(300,0,50,50),0), (Rect(500,0,200,200),0), (Rect(600,0,10,10),0)]
+    
+    result = ocv_grouping(class1 + class2, 0)
+    
+    for r in result:
+        print str(r)
+    
+
+
+# ============================================================= #
 
 if __name__ == '__main__':
-    img = utils.getImage("../data/detect/eval/3710_negatives.png")
-    
-    for windows, coords in utils.slidingWindow(img, 128, (24,24), 1.5):
-        print coords[0]
+    test_ocv_grouping()

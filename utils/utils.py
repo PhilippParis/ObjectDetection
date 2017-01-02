@@ -2,6 +2,7 @@ import os, sys
 import cv2
 import numpy
 import csv
+from rect import Rect
 
 def print_to_file(path, txt):
     print txt
@@ -105,7 +106,7 @@ def slidingWindow(src_img, stepSize, windowSize, scale_factor, min_size, max_siz
                     img = cv2.resize(img, windowSize)
                 
                 images.append(img)
-                coords.append((x, y, scaled_window))
+                coords.append(Rect(x, y, scaled_window[0], scaled_window[1]))
                 
                 count += 1
                 
