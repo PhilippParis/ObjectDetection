@@ -19,19 +19,19 @@ import os
 
 from utils import utils
 from utils import input_data
-from models import simple_classifier as classifier
+from models import simple_classifier_small as classifier
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
 
-flags.DEFINE_integer('image_size', 24, 'width and height of the input images')
+flags.DEFINE_integer('image_size', 15, 'width and height of the input images')
 
 flags.DEFINE_integer('batch_size', 512, 'training batch size')
 flags.DEFINE_integer('max_steps', 5000, 'number of steps to run trainer')
 flags.DEFINE_float('learning_rate', 0.0001, 'Initial learning rate.')
 flags.DEFINE_float('dropout', 0.75, 'Keep probability for training dropout.')
 
-flags.DEFINE_string('checkpoint_path','../output/checkpoints/classifier_simple_with_drop_lrn', 'path to checkpoint')
+flags.DEFINE_string('checkpoint_path','../output/checkpoints/classifier_simple_with_drop_lrn/226704_rotated_inverted_train', 'path to checkpoint')
 flags.DEFINE_string('log_dir','../output/log/classifier_simple_with_drop_lrn', 'path to log directory')
 flags.DEFINE_string('output_file','../output/results/classifier_simple_with_drop_lrn/train.csv', 'path to log directory')
 

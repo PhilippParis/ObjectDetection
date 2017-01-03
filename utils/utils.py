@@ -3,6 +3,7 @@ import cv2
 import numpy
 import csv
 from rect import Rect
+from partition import partition
 
 def print_to_file(path, txt):
     print txt
@@ -176,6 +177,86 @@ def evaluate(truth, detected, tol):
         f1_score = 2 * (precision * recall) / (precision + recall)
     
     return tp, fn, fp, precision, recall, f1_score
+
+# ============================================================= #
+    
+def non_maximum_suppression(bboxes, th):
+    """
+    applies non_maximum_suppression to the set of bounding boxes
+    Args:
+        bboxes: list of bounding boxes [(left upper x, left upper y, size, score)]
+    Returns:
+        list of objects [(center x, center y)]
+    """
+    
+    def get_score(item):
+        return item[1]
+    
+    # sort boxes according to detection scores
+    sort = sorted(bboxes, reverse=True, key=get_score)
+
+    for i in range(len(sort)): 
+        j = i + 1
+        while (j < len(sort)):
+            if i >= len(sort) or j >= len(sort):
+                break
+            if Rect.overlap(sort[i][0], sort[j][0]) > th:
+                del sort[j]
+                j -= 1
+            j += 1 
+            
+
+    return [r.center() for (r,score) in sort]
+
+# ============================================================= #
+
+def ocv_grouping(bboxes, min_neighbours):
+    result = []
+    avg_bboxes = []
+    class_count = []
+
+    # comparator function
+    def compare(a, b):
+        return Rect.compare(a[0], b[0])
+    
+    # cluster candidate bboxes into n classes, each class represents equvalent rectangles
+    labels, num_classes = partition(bboxes, compare)
+        
+     # init vars
+    for i in xrange(num_classes):
+        avg_bboxes.append(Rect(0,0,0,0))
+        class_count.append(0)
+        
+    # calc average bounding box of each class
+    for i in xrange(len(bboxes)):
+        j = labels[i]
+        avg_bboxes[j] += bboxes[i][0]
+        class_count[j] += 1
+    
+    # select valid bboxes
+    for i in xrange(num_classes):    
+        # reject classes with count < min_neighbours
+        if class_count[i] < min_neighbours:
+            continue
+        
+        # calc average
+        avg_bboxes[i] /= class_count[i]
+        
+        # reject average bounding boxes which are inside other candidates
+        reject = False
+        for j in range(num_classes):
+            if class_count[j] < min_neighbours:
+                continue
+            
+            if i != j and avg_bboxes[j].contains(avg_bboxes[i]):
+                reject = True
+                break;
+        
+        # add to results if not rejected
+        if not reject:
+            result.append(avg_bboxes[i].center())
+            
+    return result  
 
 # ============================================================= #
 

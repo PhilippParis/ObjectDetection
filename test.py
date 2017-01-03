@@ -8,6 +8,7 @@ import csv
 import os
 from models import classifier as nn
 from utils.rect import Rect
+from utils import partition
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
@@ -499,5 +500,18 @@ def test_ocv_grouping():
 
 # ============================================================= #
 
+def test_partition():
+    objects = [1,2,3,5,6,7,4,10,11,12,14,15,16,13,22]
+    
+    def compare(a,b):
+        return abs(a - b) <= 1
+    
+    labels, num_classes = partition.partition(objects, compare)
+
+    print num_classes
+    print labels
+
+# ============================================================= #
+
 if __name__ == '__main__':
-    test_ocv_grouping()
+    test_partition()
