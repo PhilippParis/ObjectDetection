@@ -12,20 +12,24 @@ import cv2
 import gflags
 import csv
 import sys
-import input_data
+from utils import input_data
+from utils import utils
 import numpy
 import math
+import os
 import time
 import random
 import tensorflow as tf
 
 FLAGS = gflags.FLAGS
 
-gflags.DEFINE_integer('image_size', 128, 'width and height of the example images')
-gflags.DEFINE_integer('mask_size', 32, 'width and height of the mask images')
+gflags.DEFINE_integer('object_size', 64, 'width and height of each imported example')
+gflags.DEFINE_integer('image_size', 24, 'width and height of each exported example')
+gflags.DEFINE_integer('mask_size', 12, 'width and height of the mask images')
 gflags.DEFINE_integer('count', 200, 'amount of randomly exported sub images')
 
-gflags.DEFINE_string('output_img_dir','../../data/detect/eval/', 'input file')
+gflags.DEFINE_string('input_dir','../data/data/eval', 'output directory')
+gflags.DEFINE_string('output_dir','../data/', 'output directory')
 
 def get_labels(path, label):
     csvfile = open(path, 'rb')
@@ -33,11 +37,12 @@ def get_labels(path, label):
     
     labels = []
     for row in csv_reader:
-        if int(row[3]) == label:
+        if int(row[2]) == label:
             pos_x = int(row[0])
             pos_y = int(row[1])
             labels.append((pos_x, pos_y))
-            
+    
+    csvfile.close()
     return labels
 
 # ============================================================= #    
@@ -48,33 +53,19 @@ def get_count(path, label):
     
     count = 0
     for row in csv_reader:
-        if int(row[3]) == label:
+        if int(row[2]) == label:
             count += 1
             
+    csvfile.close()
     return count
 
 # ============================================================= #    
 
 def create_input_img(img, x, y):
-    return img[y : y + FLAGS.image_size, x : x + FLAGS.image_size]
+    rad = FLAGS.object_size / 2
+    example = img[y - rad : y + rad, x - rad : x + rad]
+    return cv2.resize(example, (FLAGS.image_size, FLAGS.image_size))
 
-# ============================================================= #  
-
-def create_label_img(labels, src_x, src_y):
-    lbl = numpy.zeros([FLAGS.mask_size, FLAGS.mask_size])
-    factor = FLAGS.image_size / FLAGS.mask_size
-    
-    for x,y in labels:
-        if x >= src_x and x <= (src_x + FLAGS.image_size) and y >= src_y and y <= (src_y + FLAGS.image_size):
-            dest_x = (x - src_x) / factor
-            dest_y = (y - src_y) / factor
-            
-            for x in range(dest_x - 2, dest_x + 2):
-                for y in range(dest_y - 2, dest_y + 2):
-                    if x >= 0 and x < 32 and y >= 0 and y < 32:
-                        lbl[y, x] = 1
-    return lbl          
-            
 # ============================================================= #    
 
 def contains_objects(labels, src_x, src_y):
@@ -90,90 +81,81 @@ def main(argv):
         argv = FLAGS(argv)
     except gflags.FlagsError, e:
         print '%s\\nUsage: %s ARGS\\n%s' % (e, sys.argv[0], FLAGS)
+        return
         
     # import images
     positives_count = 0
     negatives_count = 0
-    
     paths = []
-    for i in xrange(1, 22):
-        image_path = '../../data/eval/eval_' + str(i) + '.tif'
-        label_path = '../../data/eval/data/eval_' + str(i) + '.csv'
-        paths.append((image_path, label_path))
-        positives_count += get_count(label_path, 1)
-        negatives_count += get_count(label_path, 0)
-        
     
+    files = [f for f in os.listdir(FLAGS.input_dir) if os.path.isfile(os.path.join(FLAGS.input_dir, f))]
+    
+    for f in files:
+        # check if image file and label file with same name exist
+        basename = os.path.splitext(f)[0]
+        extension = os.path.splitext(f)[1]
+        
+        if extension != ".csv" and basename + ".csv" in files:
+            image_path = os.path.join(FLAGS.input_dir, f)
+            label_path = os.path.join(FLAGS.input_dir, basename + ".csv")
+            
+            paths.append((image_path, label_path))
+            positives_count += get_count(label_path, 1)
+            negatives_count += get_count(label_path, 0)
+    
+
+    print str(positives_count) + " positive examples imported"
+    print str(negatives_count) + " negative examples imported"
+
     # create output images 
     height_pos = int(math.ceil(float(positives_count) / 100) * FLAGS.image_size)
     height_neg = int(math.ceil(float(negatives_count) / 100) * FLAGS.image_size)
-    height_lbl = int(math.ceil(float(positives_count) / 100) * FLAGS.mask_size)
     
     img_pos = numpy.zeros((height_pos, 100 * FLAGS.image_size), numpy.float)
-    #img_neg = numpy.zeros((height_neg, 100 * FLAGS.image_size), numpy.float)
-    img_lbl = numpy.zeros((height_lbl, 100 * FLAGS.mask_size), numpy.float)
+    img_neg = numpy.zeros((height_neg, 100 * FLAGS.image_size), numpy.float)
 
     y_pos = 0
     y_neg = 0
-    y_lbl = 0
     
     x_pos = 0
     x_neg = 0
-    x_lbl = 0
     
     # fill image
     for (image_path, label_path) in paths:
         # import data
-        src_init = utils.getImage(image_path)
-        src = cv2.copyMakeBorder(src_init, FLAGS.image_size, FLAGS.image_size, FLAGS.image_size, FLAGS.image_size, cv2.BORDER_REPLICATE)
-        del src_init
+        src = utils.getImage(image_path)
+        src = cv2.copyMakeBorder(src, FLAGS.object_size, FLAGS.object_size, FLAGS.object_size, FLAGS.object_size, cv2.BORDER_REPLICATE)
         
         positives = get_labels(label_path, 1)
         negatives = get_labels(label_path, 0)
         height, width = src.shape
            
-        for (x, y) in positives:
-            #x = x + random.randrange(-20, 20)
-            #y = y + random.randrange(-20, 20)
-            
+        for (x, y) in positives:            
             # create positive example
-            
-            img = create_input_img(src, x + FLAGS.image_size / 2, y + FLAGS.image_size / 2)
+            img = create_input_img(src, x + FLAGS.object_size, y + FLAGS.object_size)
             img_pos[y_pos : y_pos + FLAGS.image_size, x_pos : x_pos + FLAGS.image_size] = img
             x_pos += FLAGS.image_size
             if x_pos >= 100 * FLAGS.image_size:
                 x_pos = 0
                 y_pos += FLAGS.image_size
             del img
-            
-            # create label
-            lbl = create_label_img(positives, x - FLAGS.image_size / 2, y - FLAGS.image_size / 2)
-            img_lbl[y_lbl : y_lbl + FLAGS.mask_size, x_lbl : x_lbl + FLAGS.mask_size] = lbl
-            x_lbl += FLAGS.mask_size
-            if x_lbl >= 100 * FLAGS.mask_size:
-                x_lbl = 0
-                y_lbl += FLAGS.mask_size
-            del lbl
-            
-        """        
-        for (x, y) in negatives:
-            img = create_input_img(src, x, y)
+              
+        for (x, y) in negatives:     
+            # create negative example
+            img = create_input_img(src, x + FLAGS.object_size, y + FLAGS.object_size)
             img_neg[y_neg : y_neg + FLAGS.image_size, x_neg : x_neg + FLAGS.image_size] = img
             x_neg += FLAGS.image_size
             if x_neg >= 100 * FLAGS.image_size:
                 x_neg = 0
                 y_neg += FLAGS.image_size
             del img
-        """ 
         del src
         
     img_pos = cv2.normalize(img_pos, None, 0, 255, cv2.NORM_MINMAX)
-    #img_neg = cv2.normalize(img_neg, None, 0, 255, cv2.NORM_MINMAX)
-    img_lbl = cv2.normalize(img_lbl, None, 0, 255, cv2.NORM_MINMAX)
+    img_neg = cv2.normalize(img_neg, None, 0, 255, cv2.NORM_MINMAX)
     
-    cv2.imwrite(FLAGS.output_img_dir + str(positives_count) + "_positives.png", img_pos) 
-    #cv2.imwrite(FLAGS.output_img_dir + str(negatives_count) + "_negatives.png", img_neg) 
-    cv2.imwrite(FLAGS.output_img_dir + str(positives_count) + "_labels.png", img_lbl)  
+    cv2.imwrite(FLAGS.output_dir + str(positives_count) + "_positives.png", img_pos) 
+    cv2.imwrite(FLAGS.output_dir + str(negatives_count) + "_negatives.png", img_neg) 
     
 if __name__ == '__main__':
     main(sys.argv)

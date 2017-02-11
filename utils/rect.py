@@ -29,6 +29,15 @@ class Rect:
         self.y = y
         self.width = width
         self.height = height
+    # ============================================================= #
+    
+    def size(self):
+        return (self.width, self.height)
+    
+    # ============================================================= #
+    
+    def area(self):
+        return self.width * self.height
         
     # ============================================================= #
     
@@ -82,4 +91,8 @@ class Rect:
     def contains(self, other):
         return self.x <= other.x and self.x2() >= other.x2() and self.y <= other.y and self.y2() >= other.y2()
         
+    # ============================================================= #
+    
+    def contains(self, x, y):
+        return self.x <= x and self.x2() >= x and self.y <= y and self.y2() >= y
     

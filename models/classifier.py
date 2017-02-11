@@ -1,8 +1,3 @@
-"""
-based on the tensorflow tutorial:
-https://github.com/tensorflow/tensorflow/blob/r0.7/tensorflow/examples/tutorials/mnist/mnist.py
-"""
-
 import model
 import tensorflow as tf
 
@@ -11,18 +6,25 @@ FLAGS = flags.FLAGS
 
 NUM_CLASSES = 2
 
-# ----------------- MODEL ----------------- #
+# ----------------- NETWORK ----------------- #
 
 def create(network_input, keep_prob):
-    logits = model.create(network_input, keep_prob)
-        
-    #- layer 8 -#
+    """
+    Builds the convolutional network model (2x conv, 1x fully connected, softmax output)
+    
+    Returns:
+        logits
+    """        
+
+    hidden_layers = model.create(network_input, keep_prob)
+
+    #- output layer -#
     with tf.variable_scope('classifier') as scope:
-        weights = model.weight_var([2048, NUM_CLASSES], 0.0)
+        weights = model.weight_var([1024, NUM_CLASSES], 0.0)
         biases = model.bias_var([NUM_CLASSES])
         
         # do not use tf.nn.softmax here -> loss uses tf.nn.sparse_softmax_cross_entropy_with_logits
-        classifier = tf.add(tf.matmul(logits, weights), biases)
+        classifier = tf.add(tf.matmul(hidden_layers, weights), biases)
         model.variable_summaries(classifier, 'network-output')
         return classifier
 
@@ -81,8 +83,3 @@ def train(total_loss, global_step):
         train_op = tf.no_op(name='train')
         
     return train_op
-
-# ----------------- SAVE / RESTORE  ----------------- #
-
-def weights_saver():
-    return model.weights_saver()

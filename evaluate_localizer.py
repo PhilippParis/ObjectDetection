@@ -9,24 +9,21 @@ import datetime
 from models import localizer as nn
 from utils import utils
 from utils import input_data
+from utils.rect import Rect
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
 
-flags.DEFINE_integer('image_size', 128, 'width and height of the input images')
-flags.DEFINE_integer('window_size', 128, 'width and height of the sliding window')
+flags.DEFINE_integer('input_size', 24, 'width and height of the cnn input')
+flags.DEFINE_integer('min_window_size', 30, 'minimum window height and width')
+flags.DEFINE_integer('max_window_size', 80, 'maximum window height and width')
+flags.DEFINE_integer('label_size', 12, 'width and height of the input images')
 
-flags.DEFINE_integer('label_size', 32, 'width and height of the input images')
-flags.DEFINE_string('test', 'eval_5', 'name of the test image')
-
-flags.DEFINE_boolean('show_ground_truth', True, 'show ground truth data')
-
-flags.DEFINE_integer('step_size', 16, 'sliding window step size')
-flags.DEFINE_integer('tol', 25, 'max tolerated distance error between ground truth crater and detected crater')
+flags.DEFINE_string('test', '../data/data/eval/eval_1.png', 'test image path')
+flags.DEFINE_integer('scale_factor', 1.25, 'scale factor')
+flags.DEFINE_integer('step_size', 12, 'sliding window step size')
 
 flags.DEFINE_string('checkpoint_dir','../output/checkpoints/localizer', 'path to thensorflow checkpoint dir')
-flags.DEFINE_string('ground_truth_dir','../data/eval/data/', 'path to ground truth data dir')
-flags.DEFINE_string('input_dir','../data/eval/', 'path to input images')
 flags.DEFINE_string('output_dir','../output/results/localizer/', 'path to output dir')
 
 # start session
@@ -47,28 +44,28 @@ def create_mask(model, x, keep_prob, src):
     global sess
     height, width = src.shape
     mask = np.zeros((height,width), np.float32)
-    w_size = (FLAGS.window_size, FLAGS.window_size)
-    i_size = (FLAGS.image_size, FLAGS.image_size)
+    input_size = (FLAGS.input_size, FLAGS.input_size)
+    min_window_size = (FLAGS.min_window_size, FLAGS.min_window_size)
+    max_window_size = (FLAGS.max_window_size, FLAGS.max_window_size)
     
-    for windows, coords in utils.slidingWindow(src, FLAGS.step_size, w_size, i_size):
+    for windows, coords in utils.slidingWindow(src, FLAGS.step_size, input_size, FLAGS.scale_factor, min_window_size, max_window_size):
         feed = {x:windows, keep_prob:1.0}
         out = sess.run(model, feed_dict = feed)
 
         for i in range(0, len(out)):
-            xc = coords[i][0] - w_size[0] / 2
-            yc = coords[i][1] - w_size[1] / 2
+            out_scaled = cv2.resize(np.reshape(out[i], [FLAGS.label_size,FLAGS.label_size]), 
+                                    coords[i].size(), interpolation=cv2.INTER_CUBIC)
             
-            out_scaled = cv2.resize(np.reshape(out[i], [32,32]), w_size, interpolation=cv2.INTER_CUBIC)
-            # _,out_scaled = cv2.threshold(out_scaled,0.4,1.0,cv2.THRESH_TOZERO)
-            mask[yc : yc + w_size[1], xc : xc + w_size[0]] += out_scaled
+            mask[coords[i].y : coords[i].y2(), coords[i].x : coords[i].x2()] += out_scaled
     
     # image processing
-    
     mask = cv2.normalize(mask, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
-    cv2.imwrite(FLAGS.output_dir + FLAGS.test + '_mask_' + str(FLAGS.step_size) + '_' + str(datetime.datetime.now()) + '.png', mask)
+    #  cv2.imwrite(FLAGS.output_dir + FLAGS.test + '_mask_' + str(FLAGS.step_size) + '_' + str(datetime.datetime.now()) + '.png', mask)
     return mask
 
+
 # ============================================================= #
+
 
 def mask_to_objects(mask, threshold):
     """
@@ -105,14 +102,17 @@ def mask_to_objects(mask, threshold):
     
     objects = []
     for k in keypoints:
-        objects.append((int(k.pt[0]), int(k.pt[1])))
+        objects.append(Rect(int(k.pt[0] - k.size), int(k.pt[1] - k.size), int(k.size * 2), int(k.size * 2)))
     
     return objects
 # ============================================================= #
     
 def main(_):
+    image_path = FLAGS.test
+    csv_path = os.path.splitext(image_path)[0] + ".csv"
+    
     # ---------- create model ----------------#
-    x           = tf.placeholder("float", shape=[None, FLAGS.image_size * FLAGS.image_size])
+    x           = tf.placeholder("float", shape=[None, FLAGS.input_size * FLAGS.input_size])
     keep_prob   = tf.placeholder("float")
     global_step = tf.Variable(0, trainable=False, name='global_step')
     model  = nn.create(x, keep_prob)
@@ -125,8 +125,8 @@ def main(_):
     # ---------- object detection ------------#    
     print 'starting detection of ' + FLAGS.test + '...'
     
-    img = utils.getImage(FLAGS.input_dir + FLAGS.test + '.tif')
-    img = cv2.copyMakeBorder(img, FLAGS.image_size, FLAGS.image_size, FLAGS.image_size, FLAGS.image_size, cv2.BORDER_REPLICATE) 
+    img = utils.getImage(image_path)
+    img = cv2.copyMakeBorder(img, FLAGS.max_window_size, FLAGS.max_window_size, FLAGS.max_window_size, FLAGS.max_window_size, cv2.BORDER_REPLICATE) 
     
     start = time.time()
     
@@ -138,31 +138,37 @@ def main(_):
     # ------------- evaluation --------------#
     global_step = tf.train.global_step(sess, global_step)
     
-    ground_truth_data = utils.csv_to_list(FLAGS.ground_truth_dir + FLAGS.test + '.csv', True)
-    ground_truth_data = [(x + FLAGS.image_size,y + FLAGS.image_size,rad) for (x,y,rad,lbl) in ground_truth_data]
-    
-    for th in xrange(10, 250, 10):
+    ground_truth_data = utils.get_ground_truth_data(csv_path)
+    ground_truth_data = [(x + FLAGS.max_window_size,y + FLAGS.max_window_size) for (x,y) in ground_truth_data]
+        
+    for th in [150, 160, 170, 180, 190, 200, 210, 220, 230, 240, 250]:        
         detected = mask_to_objects(mask, th)
-        tp, fn, fp, pr, re, f1 = utils.evaluate(ground_truth_data, detected, FLAGS.tol)
+        tp, fn, fp = utils.evaluate(ground_truth_data, detected)
         
         # ----------------output ----------------#
         # image output
+        """
         img_out = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB) * 255
-        for c in detected:
-            cv2.circle(img_out, (c[0], c[1]), 25, [0,255,0],3)
+        
+        for (r,score) in candidates:
+            cv2.rectangle(img_out, (r.x,r.y), (r.x2(), r.y2()), [200,200,200], 2)
+        
+        for r in detected:
+            cv2.rectangle(img_out, (r.x,r.y), (r.x2(), r.y2()), [0,255,0], 2)
             
         for c in ground_truth_data:
             cv2.circle(img_out, (c[0], c[1]), 3, [0,0,255],3)
         
-        output_file = FLAGS.test + '_' + str(global_step) + 'its_' + str(FLAGS.step_size) + 'step_' + str(th) + 'threshold_' + str(datetime.datetime.now())
+        output_file = "out" + '_' + str(global_step) + 'its_' + str(FLAGS.step_size) + 'step_' + str(th) + 'threshold_' + str(datetime.datetime.now())
         cv2.imwrite(FLAGS.output_dir + output_file + '.png', img_out)
+        """
+        
         # csv output
         with open(FLAGS.output_dir + 'results.csv', 'ab') as file:
             writer = csv.writer(file, delimiter=',')
-            writer.writerow([FLAGS.test, "-", str(elapsed), 
+            writer.writerow([FLAGS.test, str(elapsed), 
                             str(global_step), str(len(ground_truth_data)), str(th),
-                            str(len(detected)), str(FLAGS.step_size), str(tp), str(fp), str(fn), 
-                            str(pr), str(re), str(f1)])
+                            str(len(detected)), str(FLAGS.step_size), str(tp), str(fp), str(fn)])
 
 if __name__ == '__main__':
     tf.app.run()
